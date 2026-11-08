@@ -4,6 +4,8 @@
 const enc = new TextEncoder();
 const ITER = 60000;                 /* итерации PBKDF2 (максимум в Workers — 100000). Хеш хранит своё число итераций */
 const SESSION_MS = 30 * 864e5;      /* токен живёт 30 дней */
+const ADMIN = 'admin';              /* единственный аккаунт-администратор (регистр важен) */
+const COL_RE = /^[A-Za-z0-9' \-]{1,30}$/;
 
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 const unhex = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
@@ -35,6 +37,10 @@ let ready = false;
 async function init(db) {
   if (ready) return;
   await db.exec('CREATE TABLE IF NOT EXISTS attempts (k TEXT PRIMARY KEY, n INTEGER NOT NULL, ts INTEGER NOT NULL)');
+  await db.exec("CREATE TABLE IF NOT EXISTS bans (user_id INTEGER PRIMARY KEY, reason TEXT NOT NULL DEFAULT '', ts INTEGER NOT NULL)");
+  await db.exec('CREATE TABLE IF NOT EXISTS grants (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, ts INTEGER NOT NULL, applied INTEGER NOT NULL DEFAULT 0)');
+  await db.exec('CREATE INDEX IF NOT EXISTS grants_u ON grants (user_id, applied)');
+  await db.exec('CREATE TABLE IF NOT EXISTS admin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL, detail TEXT NOT NULL)');
   ready = true;
 }
 
@@ -61,10 +67,20 @@ async function auth(req, env) {
   const m = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.get('authorization') || '');
   if (!m) return null;
   const row = await env.DB.prepare(
-    'SELECT u.id, u.username, s.created FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?'
+    'SELECT u.id, u.username, s.created, b.reason AS ban_reason, (b.user_id IS NOT NULL) AS banned ' +
+    'FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN bans b ON b.user_id = u.id WHERE s.token = ?'
   ).bind(await sha(m[1])).first();
   if (!row || Date.now() - row.created > SESSION_MS) return null;
   return row;
+}
+const banMsg = r => 'Аккаунт заблокирован' + (r && r.length ? ': ' + r : '');
+
+/* вошедший и не заблокированный пользователь, либо готовый ответ с ошибкой */
+async function authed(req, env) {
+  const u = await auth(req, env);
+  if (!u) return { res: err('Нужно войти', 401) };
+  if (u.banned) return { res: err(banMsg(u.ban_reason), 403) };
+  return { u };
 }
 
 async function newSession(env, userId) {
@@ -81,6 +97,7 @@ async function register(req, env) {
   let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
   const username = String(b.username || '').trim(), password = String(b.password || '');
   if (!USER_RE.test(username)) return err('Юзернейм: 3–20 символов, латиница, цифры и _');
+  if (username !== ADMIN && username.toLowerCase() === ADMIN) return err('Этот юзернейм зарезервирован', 409);
   if (password.length < 6 || password.length > 100) return err('Пароль: от 6 до 100 символов');
   const ip = req.headers.get('CF-Connecting-IP') || 'x';
   if (await limited(env.DB, 'reg:' + ip, 5, 3600000)) return err('Слишком много регистраций. Попробуйте позже', 429);
@@ -109,6 +126,8 @@ async function login(req, env) {
   const got = await hashPass(password, u.salt, int(it, 1000, 100000));
   if (!same(got, stored || '')) return err('Неверный юзернейм или пароль', 401);
   await env.DB.prepare('DELETE FROM attempts WHERE k = ?').bind(uk).run();
+  const ban = await env.DB.prepare('SELECT reason FROM bans WHERE user_id = ?').bind(u.id).first();
+  if (ban) return err(banMsg(ban.reason), 403);
   return json({ token: await newSession(env, u.id), username: u.username });
 }
 
@@ -148,27 +167,125 @@ async function save(req, env, user) {
   const prev = await env.DB.prepare('SELECT data, updated FROM saves WHERE user_id = ?').bind(user.id).first();
   if (prev && now - prev.updated < 1500) return err('Слишком часто', 429);
 
-  /* лёгкая защита от накрутки: прирост баланса/прибыли ограничен прошедшим временем */
+  /* выдачи администратора, которые клиент подтверждает как применённые:
+     берём только реальные, ещё не применённые выдачи этого же игрока */
+  let ack = [];
+  if (Array.isArray(b.ack)) ack = [...new Set(b.ack.map(Number).filter(n => Number.isInteger(n) && n > 0))].slice(0, 50);
+  let gr = [];
+  if (ack.length) {
+    const q = await env.DB.prepare(
+      'SELECT id, kind, payload FROM grants WHERE user_id = ? AND applied = 0 AND id IN (' + ack.map(() => '?').join(',') + ')'
+    ).bind(user.id, ...ack).all();
+    gr = q.results || [];
+  }
+  let tonCredit = 0;
+  for (const r of gr) if (r.kind === 'ton') { const p = parse(r.payload) || {}; if (p.amount > 0) tonCredit += p.amount; }
+
+  /* лёгкая защита от накрутки: прирост баланса/прибыли ограничен прошедшим временем.
+     Выданные админом TON добавляются к допустимому приросту баланса (но не прибыли и не оборота) */
   let pd = null;
   if (prev) { try { pd = JSON.parse(prev.data); } catch (e) {} }
   if (pd && Number.isFinite(pd.ton)) {
     const dt = Math.max(0, (now - prev.updated) / 1000), allow = Math.min(8000 + dt * 5, 100000);
-    if (d.ton - pd.ton > allow || num(d.profit, -1e9, 1e9) - num(pd.profit, -1e9, 1e9) > allow ||
+    if (d.ton - pd.ton > allow + tonCredit || num(d.profit, -1e9, 1e9) - num(pd.profit, -1e9, 1e9) > allow ||
         num(d.vol, 0, 1e12) - num(pd.vol, 0, 1e12) > allow * 3 || num(d.flips, 0, 1e9) - num(pd.flips, 0, 1e9) > 40 + dt)
       return err('Сервер отклонил сохранение: слишком резкий рост баланса', 409);
-  } else if (d.ton > 20000 || num(d.profit, -1e9, 1e9) > 20000) {
+  } else if (d.ton > 20000 + tonCredit || num(d.profit, -1e9, 1e9) > 20000) {
     return err('Сервер отклонил сохранение: слишком большой стартовый баланс', 409);
   }
 
   const profile = JSON.stringify(buildProfile(d, b.worth));
-  await env.DB.prepare(
+  const stmts = [env.DB.prepare(
     'INSERT INTO saves (user_id, data, profile, updated) VALUES (?, ?, ?, ?) ' +
     'ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, profile = excluded.profile, updated = excluded.updated'
-  ).bind(user.id, JSON.stringify(d), profile, now).run();
+  ).bind(user.id, JSON.stringify(d), profile, now)];
+  for (const r of gr) stmts.push(env.DB.prepare('UPDATE grants SET applied = 1 WHERE id = ? AND user_id = ?').bind(r.id, user.id));
+  await env.DB.batch(stmts);
   return json({ ok: true, t: now });
 }
 
 const parse = s => { try { return JSON.parse(s); } catch (e) { return null; } };
+
+async function pendingGrants(env, userId) {
+  const { results } = await env.DB.prepare(
+    'SELECT id, kind, payload FROM grants WHERE user_id = ? AND applied = 0 ORDER BY id LIMIT 50'
+  ).bind(userId).all();
+  return results.map(r => Object.assign({ id: r.id, kind: r.kind }, parse(r.payload) || {}));
+}
+
+/* ================= АДМИНИСТРАТОР ================= */
+async function findUser(env, name) {
+  name = String(name || '');
+  if (!USER_RE.test(name)) return null;
+  return env.DB.prepare('SELECT id, username FROM users WHERE username = ?').bind(name).first();
+}
+async function adminLog(env, admin, action, target, detail) {
+  await env.DB.prepare('INSERT INTO admin_log (ts, admin, action, target, detail) VALUES (?, ?, ?, ?, ?)')
+    .bind(Date.now(), admin, action, target, String(detail).slice(0, 300)).run();
+}
+
+async function adminRoute(req, env, url, path, m, u) {
+  if (u.username !== ADMIN) return err('Нет доступа', 403);
+
+  if (path === '/api/admin/users' && m === 'GET') {
+    const q = (url.searchParams.get('q') || '').replace(/^@/, '');
+    if (!/^[A-Za-z0-9_]{0,20}$/.test(q)) return json({ users: [] });
+    const like = '%' + q.replace(/[\\%_]/g, '\\$&') + '%';
+    const { results } = await env.DB.prepare(
+      'SELECT u.username, s.profile, s.updated, b.reason AS ban_reason, (b.user_id IS NOT NULL) AS banned ' +
+      'FROM users u LEFT JOIN saves s ON s.user_id = u.id LEFT JOIN bans b ON b.user_id = u.id ' +
+      "WHERE u.username LIKE ? ESCAPE '\\' ORDER BY (lower(u.username) = lower(?)) DESC, s.updated DESC LIMIT 25"
+    ).bind(like, q).all();
+    return json({
+      users: results.map(r => {
+        const p = parse(r.profile) || {}, st = p.stats || {};
+        return {
+          username: r.username, name: p.name || r.username, worth: p.worth || 0, profit: st.profit || 0,
+          count: p.count || 0, seen: r.updated || 0, banned: !!r.banned, reason: r.ban_reason || ''
+        };
+      })
+    });
+  }
+
+  if (m !== 'POST') return err('Не найдено', 404);
+  let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
+  const t = await findUser(env, b.user);
+  if (!t) return err('Игрок не найден', 404);
+
+  if (path === '/api/admin/ban') {
+    if (t.username === ADMIN) return err('Нельзя заблокировать администратора');
+    if (b.ban) {
+      const reason = clean(b.reason, 100);
+      await env.DB.prepare('INSERT OR REPLACE INTO bans (user_id, reason, ts) VALUES (?, ?, ?)').bind(t.id, reason, Date.now()).run();
+      await adminLog(env, u.username, 'ban', t.username, reason);
+    } else {
+      await env.DB.prepare('DELETE FROM bans WHERE user_id = ?').bind(t.id).run();
+      await adminLog(env, u.username, 'unban', t.username, '');
+    }
+    return json({ ok: true, banned: !!b.ban });
+  }
+
+  if (path === '/api/admin/give-ton') {
+    const amount = Math.round(Number(b.amount) * 100) / 100;
+    if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 500000) return err('Сумма: от 0.01 до 500000 TON (можно со знаком минус)');
+    await env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
+      .bind(t.id, 'ton', JSON.stringify({ amount }), Date.now()).run();
+    await adminLog(env, u.username, 'give-ton', t.username, amount);
+    return json({ ok: true });
+  }
+
+  if (path === '/api/admin/give-gift') {
+    const col = String(b.col || '');
+    if (!COL_RE.test(col)) return err('Неверная коллекция');
+    const serial = int(b.serial, 0, 1000000);   /* 0 — обычный (неулучшенный) подарок */
+    await env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
+      .bind(t.id, 'gift', JSON.stringify({ col, serial }), Date.now()).run();
+    await adminLog(env, u.username, 'give-gift', t.username, col + ' #' + serial);
+    return json({ ok: true });
+  }
+
+  return err('Не найдено', 404);
+}
 
 async function route(req, env, url) {
   const path = url.pathname.replace(/\/+$/, ''), m = req.method;
@@ -177,8 +294,8 @@ async function route(req, env, url) {
   if (path === '/api/login' && m === 'POST') return login(req, env);
 
   if (path === '/api/me' && m === 'GET') {
-    const u = await auth(req, env);
-    return u ? json({ username: u.username }) : err('Нужно войти', 401);
+    const a = await authed(req, env); if (a.res) return a.res;
+    return json({ username: a.u.username });
   }
   if (path === '/api/logout' && m === 'POST') {
     const t = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.get('authorization') || '');
@@ -186,13 +303,22 @@ async function route(req, env, url) {
     return json({ ok: true });
   }
   if (path === '/api/load' && m === 'GET') {
-    const u = await auth(req, env); if (!u) return err('Нужно войти', 401);
+    const a = await authed(req, env); if (a.res) return a.res;
+    const u = a.u;
     const r = await env.DB.prepare('SELECT data, updated FROM saves WHERE user_id = ?').bind(u.id).first();
-    return json({ username: u.username, data: r ? parse(r.data) : null, updated: r ? r.updated : 0 });
+    return json({ username: u.username, data: r ? parse(r.data) : null, updated: r ? r.updated : 0, grants: await pendingGrants(env, u.id) });
+  }
+  if (path === '/api/grants' && m === 'GET') {
+    const a = await authed(req, env); if (a.res) return a.res;
+    return json({ grants: await pendingGrants(env, a.u.id) });
   }
   if (path === '/api/save' && m === 'PUT') {
-    const u = await auth(req, env); if (!u) return err('Нужно войти', 401);
-    return save(req, env, u);
+    const a = await authed(req, env); if (a.res) return a.res;
+    return save(req, env, a.u);
+  }
+  if (path.startsWith('/api/admin/')) {
+    const a = await authed(req, env); if (a.res) return a.res;
+    return adminRoute(req, env, url, path, m, a.u);
   }
 
   /* публичные: профиль, поиск, топ */
@@ -220,7 +346,8 @@ async function route(req, env, url) {
   }
   if (path === '/api/top' && m === 'GET') {
     const { results } = await env.DB.prepare(
-      'SELECT u.username, s.profile FROM saves s JOIN users u ON u.id = s.user_id ORDER BY s.updated DESC LIMIT 150'
+      'SELECT u.username, s.profile FROM saves s JOIN users u ON u.id = s.user_id ' +
+      'WHERE NOT EXISTS (SELECT 1 FROM bans b WHERE b.user_id = u.id) ORDER BY s.updated DESC LIMIT 150'
     ).all();
     const list = results.map(r => {
       const p = parse(r.profile) || {};
