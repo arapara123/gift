@@ -245,6 +245,10 @@ body{background:#030409}
 .hero.hasimg .hini{display:none}
 .x{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(255,255,255,.1)}
 .hero.cov .himg,.hero.cov .hini{visibility:hidden}
+/* фон шторки = размытая копия самого подарка, поэтому цвета всегда совпадают с картинкой */
+.hero .hbg{filter:blur(30px) saturate(1.25)}
+.hero.hasimg .himg{width:215px;height:215px;border-radius:0;-webkit-mask-image:radial-gradient(closest-side,#000 68%,transparent 100%);mask-image:radial-gradient(closest-side,#000 68%,transparent 100%)}
+.hero.cov .hbg{display:none}
 /* ===== Скругления везде: без острых углов ===== */
 .hero{border-radius:0 0 30px 30px}
 #up-stage{border-radius:26px}
@@ -955,7 +959,7 @@ function openGift(id,just,keep){
   }
   const mName=R.model?R.model.v:MODELS[g.mi][0];
   const bdc=IMG_BD[bdKey(g)],bdI=bdc?bdc.i:g.bi;
-  $('sheet').innerHTML=`<div class="hero" style="background:${heroBg(g)}"><div class="hini" style="background:${bg(g)}">${ini(g.col)}</div>${imgTag(g,'himg')}<button class="x" onclick="closeModal()">✕</button>
+  $('sheet').innerHTML=`<div class="hero" style="background:${heroBg(g)}">${imgTag(g,'hbg')}<div class="hini" style="background:${bg(g)}">${ini(g.col)}</div>${imgTag(g,'himg')}<button class="x" onclick="closeModal()">✕</button>
     <div class="ttl"><div style="font-size:21px;font-weight:900">${g.col} <span style="font-size:14px;font-weight:700;opacity:.8">#${nf(g.serial)}</span></div><div style="font-size:14px;opacity:.9;margin-top:2px">${mName}</div></div></div>
   <div class="sbody">
   <div class="table">
