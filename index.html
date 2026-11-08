@@ -269,6 +269,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
   <div class="panel mut" style="line-height:1.55">Баланс нельзя пополнить или накрутить: деньги появляются только от реальных продаж и кэшбэка. Комиссия маркета снижается с ростом оборота.</div>
   <div class="h2"><span>История операций</span></div>
   <div id="w-hist"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+    <button class="buy ghost" onclick="exportSave()">⬇ Сохранить в файл</button>
+    <button class="buy ghost" onclick="$('imp').click()">⬆ Загрузить из файла</button>
+  </div>
+  <input id="imp" type="file" accept=".json,application/json" class="hidden" onchange="importSave(this)">
+  <p class="mut" style="margin-top:8px;text-align:center">Прогресс сохраняется автоматически в браузере. Файл — запасная копия.</p>
   <button class="buy red" style="margin-top:14px" onclick="resetGame()">Начать игру заново</button>
 </main>
 
@@ -313,10 +319,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 
 <script>
 /* =================== ЗВУК / ЭФФЕКТЫ =================== */
-let snd=true,ac=null;
+let snd=(function(){try{return localStorage.getItem('pr_snd')!=='0'}catch(e){return true}})(),ac=null;
 function beep(f,d=.08,t='sine',v=.08,at=0){if(!snd)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+at;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(ac.destination);o.start(n);o.stop(n+d)}catch(e){}}
 const sfx={click:()=>beep(420,.04),buy:()=>{beep(440,.1,'triangle',.12);beep(660,.12,'triangle',.12,.07)},sale:()=>[587,880,1175].forEach((f,i)=>beep(f,.22,'sine',.12,i*.07)),offer:()=>{beep(523,.14);beep(659,.16,'sine',.08,.09)},tick:()=>beep(900,.03,'sine',.04)};
-function toggleSound(){snd=!snd;$('snd').textContent=snd?'🔊':'🔇'}
+function toggleSound(){snd=!snd;try{localStorage.setItem('pr_snd',snd?'1':'0')}catch(e){}$('snd').textContent=snd?'🔊':'🔇'}
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 function confetti(n=70){
   const c=document.createElement('canvas');c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:98';
@@ -930,7 +936,16 @@ function updLive(){
   if(!e){return}
   if(el._h!==e.h){el._h=e.h;el.innerHTML=e.h;el.classList.remove('slide');void el.offsetWidth;el.classList.add('slide')}
 }
+let _sv=0;
+function saveSoon(){clearTimeout(_sv);_sv=setTimeout(save,300)}
+function exportSave(){save();const b=new Blob([JSON.stringify(S)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='portals_save.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);toast('⬇ Сохранение скачано','ok')}
+function importSave(inp){
+  const f=inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||typeof d.ton!=='number'||!Array.isArray(d.inv)||!Array.isArray(d.market))throw 0;S=d;patchState();save();refresh();toast('⬆ Сохранение загружено','ok')}catch(e){toast('Файл не подходит','bad')}inp.value=''};
+  r.readAsText(f);
+}
 function refresh(){
+  saveSoon();
   $('h-bal').textContent=f2(S.ton);$('online').textContent=online.toLocaleString('ru-RU');
   const d=$('d-off');d.textContent=S.offers.length;d.classList.toggle('hidden',!S.offers.length);
   updLive();
@@ -945,6 +960,11 @@ function refresh(){
 if(!load()){S=freshState();seedMarket();save()}else patchState();
 $('imgb').style.opacity=UI.render==='CDN'?1:.45;
 go('market');
+/* автосохранение: при любом изменении, при сворачивании и закрытии вкладки */
+window.addEventListener('pagehide',save);window.addEventListener('beforeunload',save);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+$('snd').textContent=snd?'🔊':'🔇';
 setInterval(tick,3000);
 setInterval(()=>{online=clamp(online+Math.round(rnd(-14,16)),900,2400);$('online').textContent=online.toLocaleString('ru-RU')},2500);
 </script>
