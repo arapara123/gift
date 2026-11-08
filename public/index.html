@@ -340,8 +340,6 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
   <div class="bal"><div class="trk" id="trk"><i id="bfill"></i><u id="bthumb"></u></div><div class="bt"><b id="bal-t">0 TON</b><span id="bal-s">0 подарков</span></div></div>
   <div class="pills" id="col-pills"></div>
   <div class="pills" style="padding-top:0">
-    <button class="pill" id="p-snipe" onclick="UI.snipe=!UI.snipe;renderMarket()"> Выгодные</button>
-    <button class="pill" id="p-gem" onclick="UI.gem=!UI.gem;renderMarket()"> Редкие номера</button>
     <button class="pill" onclick="cycleSort()" id="p-sort">↑ Цена</button>
     <button class="pill" onclick="resetFilters()">✕ Сброс</button>
   </div>
@@ -455,6 +453,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
   <div class="tg-tabs" id="p-tabs">
     <button data-k="gifts" onclick="UI.ptab='gifts';renderProfile()">Подарки</button>
     <button data-k="stats" onclick="UI.ptab='stats';renderProfile()">Статистика</button>
+    <button data-k="friends" onclick="UI.ptab='friends';renderProfile()">Друзья</button>
     <button data-k="top" onclick="UI.ptab='top';renderProfile()">Топ</button>
   </div>
   <div id="p-tab" style="padding:12px 14px"></div>
@@ -532,25 +531,27 @@ const BASE_BUY=.35, UP_FEE=.85, UP_WIN=.3, UP_JACK=.004; /* UP_WIN — общи�
 const KEY='portals_sim_v4';
 let S;
 function freshState(){return{
-  ton:50,cashback:0,vol:0,profit:0,flips:0,best:0,spent:0,
+  mv:2,ton:50,cashback:0,vol:0,profit:0,flips:0,best:0,spent:0,
   prof:{name:'Трейдер',user:'portals_flipper',bio:'Флипаю подарки Telegram',av:'',col:0},
-  worn:null,pinned:[],
+  worn:null,pinned:[],friends:[],
   floors:Object.fromEntries(COL_NAMES.map(c=>[c,COLS[c].floor])),
   fh:Object.fromEntries(COL_NAMES.map(c=>[c,Array(30).fill(COLS[c].floor)])),
   market:[],inv:[],offers:[],feed:[],hist:[],nextId:1,
   wave:Object.fromEntries(COL_NAMES.map(c=>[c,1])),
   botProfit:Object.fromEntries(BOTS.map((b,i)=>[b[0],[1840,1150,684,418,196,124,82,59][i]]))
 }}
-const UI={tab:'market',col:'ALL',q:'',snipe:false,gem:false,sort:'PRICE_ASC',invF:'ALL',tier:'ALL',bd:'ALL',upId:null,upBusy:false,ptab:'gifts',
+const UI={tab:'market',col:'ALL',q:'',sort:'PRICE_ASC',invF:'ALL',tier:'ALL',bd:'ALL',upId:null,upBusy:false,ptab:'gifts',
   render:(function(){try{return localStorage.getItem('pr_render')||'CDN'}catch(e){return'CDN'}})()};
 const TRK={t:0,c:0}; /* t — целевая позиция ползунка цены, c — текущая (плавно догоняет цель) */
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}cloudSoon()}
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
 function patchState(){
+  const stale=S.mv!==2;
   const d=freshState();for(const k in d)if(S[k]===undefined)S[k]=d[k];
   COL_NAMES.forEach(c=>{if(!S.fh[c])S.fh[c]=Array(30).fill(S.floors[c]||COLS[c].floor)});
   // номер определяет всё: пересчитываем признаки по номеру
   [...S.market,...S.inv].forEach(g=>{if(!g.base){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}});
+  if(stale){S.market=S.market.filter(g=>g.mine);S.mv=2;refillMarket()}
 }
 
 /* =================== УТИЛИТЫ =================== */
@@ -567,7 +568,7 @@ function seeded(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>
 function traits(col,serial){const r=seeded(hash(col+'#'+serial));return{mi:wpick(MODELS,1,r),bi:wpick(BACKDROPS,3,r),pi:wpick(PATTERNS,2,r)}}
 function ini(c){return String(c).split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase()}
 function setHTML(el,h){if(el._h!==h){el._h=h;el.innerHTML=h}}
-function premium(mille){return 1+0.35*Math.log10(30/Math.max(mille,0.5))}
+function premium(mille){return 1+0.42*Math.log10(30/Math.max(mille,0.5))}
 function feeRate(){return S.vol>=500?0.03:S.vol>=100?0.04:0.05}
 function tierName(){return S.vol>=500?'VIP 3 · комиссия 3%':S.vol>=100?'VIP 2 · комиссия 4%':'VIP 1 · комиссия 5%'}
 function toast(msg,k=''){const e=document.createElement('div');e.className='toast '+k;e.innerHTML=msg;$('toasts').appendChild(e);setTimeout(()=>{e.style.opacity=0;e.style.transition='.3s';setTimeout(()=>e.remove(),300)},3200)}
@@ -577,12 +578,12 @@ function copyTxt(t){try{navigator.clipboard.writeText(t)}catch(e){}toast(' Ск�
 
 /* =================== НОМЕР И ЦЕНА =================== */
 /* Влияние номера на цену: ранг номера + «красивые» числа */
-function serialInfo(s){
-  const str=String(s),tags=[];let m=1;
-  if(s<=10){m=12;tags.push('Топ-10')}
-  else if(s<=100){m=3.2;tags.push('Топ-100')}
-  else if(s<=1000){m=1.5;tags.push('Топ-1000')}
-  else if(s<=10000){m=1.06}
+function serialInfo(s,col){
+  const sup=(COLS[col]&&COLS[col].supply)||1e9,str=String(s),tags=[];let m=1;
+  if(s<=10){m=25;tags.push('Топ-10')}
+  else if(s<=Math.min(100,sup*.05)){m=6;tags.push('Топ-100')}
+  else if(s<=Math.min(1000,sup*.1)){m=2.4;tags.push('Топ-1000')}
+  else if(s<=Math.min(10000,sup*.2)){m=1.15}
   let pm=1;
   if(str.length>=3&&/^(\d)\1+$/.test(str)){
     /* одинаковые цифры: чем длиннее ряд, тем космически дороже */
@@ -597,17 +598,17 @@ function serialInfo(s){
   return{m:+Math.min(m*pm,1500).toFixed(2),tags};
 }
 function genSerial(sup,boost=1){
-  const cap=Math.min(sup,100000);sup=Math.min(sup,10000);
+  const cap=Math.min(sup,100000);
   const r=Math.random();
   /* красивые номера теперь действительно редкие (boost>1 — на маркете, 1 — при апгрейде) */
   if(r<.004*boost)return 1+Math.floor(Math.random()*100);
   if(r<.01*boost){const c=[111,222,333,444,555,666,777,888,999,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,55555,77777,99999,1000,2000,5000,10000,1234,12345,4242,1001,2002,1221,12321,420,1337].filter(x=>x<=cap);return pick(c)}
-  return Math.max(1,Math.floor(Math.pow(Math.random(),1.15)*sup));
+  return Math.max(1,Math.ceil(Math.random()*sup));
 }
 
 /* =================== ПОДАРКИ =================== */
 function mkGift(o={}){
-  const col=o.col||pick(COL_NAMES),serial=o.serial||genSerial(COLS[col].supply,2.5),t=traits(col,serial);
+  const col=o.col||pick(COL_NAMES),serial=o.serial||genSerial(COLS[col].supply,1.2),t=traits(col,serial);
   return{id:S.nextId++,col,serial,mi:t.mi,bi:t.bi,pi:t.pi,price:o.price||0,bought:o.bought||0,listed:!!o.listed,mine:!!o.mine,seller:o.seller||pick(BOTS)[0],at:Date.now(),nw:1,fl:0};
 }
 /* ---- сочетание цвета подарка с фоном и комбо редкостей ---- */
@@ -621,20 +622,21 @@ function matchInfo(g){
   const tags=[];let m=1;const b=BD_HSL[g.bi];
   if(b.s>=.2){
     let d=Math.abs(giftHue(g)-b.h);d=Math.min(d,360-d);
-    if(d<=12){m=3.2;tags.push('Идеальное совпадение цвета')}
-    else if(d<=25){m=2.1;tags.push('Гармония с фоном')}
-    else if(d<=40){m=1.45;tags.push('Красивое сочетание')}
-    else if(Math.abs(d-180)<=16){m=1.4;tags.push('Контраст с фоном')}
+    if(d<=12){m=4;tags.push('Идеальное совпадение цвета')}
+    else if(d<=25){m=2.6;tags.push('Гармония с фоном')}
+    else if(d<=40){m=1.7;tags.push('Красивое сочетание')}
+    else if(Math.abs(d-180)<=16){m=1.5;tags.push('Контраст с фоном')}
+    else if(d>=70&&d<=150){m=.72;tags.push('Не сочетается с фоном')}
   }
   let c=0;if(MODELS[g.mi][1]<=4)c++;if(BACKDROPS[g.bi][3]<=5)c++;if(PATTERNS[g.pi][2]<=8)c++;
   if(c===2){m*=1.4;tags.push('Двойная редкость')}else if(c===3){m*=2;tags.push('Тройная редкость')}
   return{m:+m.toFixed(2),tags};
 }
-function fair(g,noSerial){
+function fair(g,noSerial,noBeauty){
   if(g.base)return +(S.floors[g.col]*BASE_BUY).toFixed(2);
   const mp=premium(MODELS[g.mi][1]*30/SUMS.m*3.3), bp=premium(BACKDROPS[g.bi][3]*30/SUMS.b*19), pp=premium(PATTERNS[g.pi][2]*30/SUMS.p*9);
-  const sr=(noSerial?1:serialInfo(g.serial).m)*matchInfo(g).m;
-  return +(S.floors[g.col]*mp*Math.pow(bp,.8)*Math.pow(pp,.5)*sr).toFixed(2);
+  const sr=(noSerial?1:serialInfo(g.serial,g.col).m)*(noBeauty?1:matchInfo(g).m);
+  return +Math.max(S.floors[g.col]*mp*Math.pow(bp,.95)*Math.pow(pp,.65)*sr,S.floors[g.col]*.95).toFixed(2);
 }
 const pct=(w,sum)=>{const v=w/sum*100;return parseFloat(v.toFixed(v<1?2:1))+'%'};
 const nf=n=>Number(n).toLocaleString('ru-RU');
@@ -646,9 +648,17 @@ function patPct(g){return pct(PATTERNS[g.pi][2],SUMS.p)}
 /* целевое число лотов коллекции: чем дешевле подарок, тем его больше на рынке */
 function baseTarget(c){return clamp(48/Math.pow(COLS[c].floor,.42),1.4,40)}
 function marketPrice(g){
-  const si=serialInfo(g.serial);
-  if(si.m>=1.3&&Math.random()<.16)return +(fair(g,true)*rnd(.95,1.12)).toFixed(2);
-  const f=fair(g);return Math.random()<.12?+(f*rnd(.8,.9)).toFixed(2):+(f*rnd(.98,1.22)).toFixed(2);
+  const f=fair(g),r=Math.random();
+  /* красивые подарки (сочетание цвета, редкий номер) стоят дороже, некрасивые — дешевле.
+     Часть продавцов не замечает красоту и ставит цену как за обычный — это шанс найти находку. */
+  const plain=fair(g,false,true);
+  if(f>plain*1.25&&r<.14)return +Math.max(plain*rnd(.95,1.15),S.floors[g.col]*rnd(1,1.04)).toFixed(2);
+  let k;
+  if(r<.08)k=rnd(.82,.93);
+  else if(r<.78)k=rnd(.95,1.1);
+  else if(r<.93)k=rnd(1.1,1.3);
+  else k=rnd(1.3,1.6);
+  return +Math.max(.5,f*k,S.floors[g.col]*rnd(1,1.04)).toFixed(2);
 }
 
 /* =================== ВИЗУАЛ ПОДАРКА =================== */
@@ -874,7 +884,7 @@ function tick(){
   }
   for(const c of adds){
     const g=mkGift({col:c});g.price=marketPrice(g);S.market.unshift(g);
-    const si=serialInfo(g.serial);
+    const si=serialInfo(g.serial,g.col);
     if(g.price<fair(g)*.9)feed(` ${g.seller} выставил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
     else if(si.m>=2)feed(` Редкий номер: <b>${g.col} #${g.serial}</b> (${si.tags[0]}) за <b>${f2(g.price)}</b>`);
   }
@@ -887,8 +897,6 @@ function visibleBase(){
     if(UI.col!=='ALL'&&g.col!==UI.col)return false;
     if(UI.bd!=='ALL'&&g.bi!==+UI.bd)return false;
     if(UI.tier!=='ALL'&&tierOf(g)!==UI.tier)return false;
-    if(UI.snipe&&g.price>=fair(g)*.93)return false;
-    if(UI.gem&&serialInfo(g.serial).m<1.3)return false;
     if(UI.q.trim()){const q=UI.q.toLowerCase().trim().replace('#','');if(!(g.col.toLowerCase().includes(q)||String(g.serial).includes(q)||BACKDROPS[g.bi][0].toLowerCase().includes(q)))return false}
     return true});
 }
@@ -908,12 +916,12 @@ function visible(){
   return l;
 }
 function cycleSort(){const m=['PRICE_ASC','DEAL','PRICE_DESC','SERIAL'],L={PRICE_ASC:'↑ Цена',DEAL:' Выгода',PRICE_DESC:'↓ Цена',SERIAL:'# Номер'};UI.sort=m[(m.indexOf(UI.sort)+1)%4];$('p-sort').textContent=L[UI.sort];renderMarket()}
-function resetFilters(){UI.col='ALL';UI.tier='ALL';UI.bd='ALL';UI.snipe=false;UI.gem=false;UI.q='';UI.pq=null;$('q').value='';renderMarket()}
+function resetFilters(){UI.col='ALL';UI.tier='ALL';UI.bd='ALL';UI.q='';UI.pq=null;$('q').value='';renderMarket()}
 
 /* =================== РЕНДЕР: МАРКЕТ =================== */
 function giftCard(g,mode){
   if(g.base)return `<div class="card mine"><div class="art" style="background:radial-gradient(circle,#4b6a82,#2a3e4f)" onclick="openGift(${g.id})"><div class="emo">${ini(g.col)}</div><span class="badge">Обычный</span></div><div class="ctitle">${g.col}</div><div class="csub"><span>не улучшен</span><span>≈ ${f2(fair(g))} TON</span></div><button class="buy" style="background:#ffb73d;color:#2a1200;box-shadow:none" onclick="openGift(${g.id})"> Улучшить</button></div>`;
-  const f=fair(g),disc=Math.round((f-g.price)/f*100),si=serialInfo(g.serial),leg=tierOf(g)==='legendary';
+  const f=fair(g),disc=Math.round((f-g.price)/f*100),si=serialInfo(g.serial,g.col),leg=tierOf(g)==='legendary';
   const badge=g.mine&&g.listed?'<span class="badge r g">ЛОТ</span>':leg?`<span class="badge r a">${modelPct(g)}</span>`:'';
   const mt=matchInfo(g),mb=(g.mine&&mt.m>=1.35)?`<span class="badge r" style="top:auto;bottom:8px"> ×${mt.m}</span>`:'';
   const sb=si.m>=1.5?`<span class="badge b"> ${si.tags[0]||'Редкий #'}</span>`:'';
@@ -928,7 +936,6 @@ function giftCard(g,mode){
 }
 function renderMarket(){
   setHTML($('col-pills'),['ALL',...COL_NAMES].map(c=>`<button class="pill ${UI.col===c?'on':''}" onclick="UI.col='${c.replace(/'/g,"\\'")}';renderMarket()">${c==='ALL'?'Все':c}</button>`).join(''));
-  $('p-snipe').classList.toggle('on',UI.snipe);$('p-gem').classList.toggle('on',UI.gem);
   const n=(UI.tier!=='ALL')+(UI.bd!=='ALL');$('fcnt').textContent=n;$('fcnt').classList.toggle('hidden',!n);
   const base=visibleBase(),all=visible(),l=all.slice(0,60),cap=priceCap(base);
   const aff=base.filter(g=>g.price<=S.ton).length,p=UI.pq!=null?UI.pq:(base.length?aff/base.length*100:0);
@@ -956,9 +963,9 @@ function rings(emoji){return '';
 }
 function openGift(id,just,keep){
   if(!keep)sfx.click();
-  const g=S.inv.find(x=>x.id===id)||S.market.find(x=>x.id===id);if(!g)return;
+  const g=S.inv.find(x=>x.id===id)||S.market.find(x=>x.id===id)||(UI.fg||[]).find(x=>x.id===id);if(!g)return;
   if(g.base){UI.upId=g.id;go('up');return}
-  const f=fair(g),C=COLS[g.col],worn=S.worn===g.id,pin=S.pinned.includes(g.id),si=serialInfo(g.serial),mt=matchInfo(g);
+  const f=fair(g),C=COLS[g.col],worn=S.worn===g.id,pin=S.pinned.includes(g.id),si=serialInfo(g.serial,g.col),mt=matchInfo(g);
   UI.openId=g.id;const R=g.real||{};
   let action;
   if(g.mine){
@@ -984,6 +991,8 @@ function openGift(id,just,keep){
       ${g.listed?`<button class="buy red" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="buy ghost" style="flex:1" onclick="instantSell(${g.id})">Скупка ${f2(f*.9*(1-feeRate()))}</button>`}
       <button class="buy" style="flex:1.4" onclick="listGift(${g.id})">${g.listed?'Обновить цену':'Выставить'}</button>
     </div>`;
+  }else if(g.foreign){
+    action=`<div class="panel row" style="justify-content:space-between"><div><div class="mut">Оценка</div><div class="big">${f2(f)} ${TON_SVG}</div></div><div class="mut" style="text-align:right">Владелец<br><b style="color:#fff">${g.seller}</b></div></div><button class="buy ghost" onclick="openUser('${g.owner}')">← К профилю</button>`;
   }else{
     const disc=Math.round((f-g.price)/f*100);
     action=`<div class="panel row" style="justify-content:space-between"><div><div class="mut">Цена</div><div class="big">${f2(g.price)} ${TON_SVG}</div></div></div>
@@ -1002,7 +1011,7 @@ function openGift(id,just,keep){
     <div class="tr"><span class="k">Backdrop</span><span><b id="bd-n">${R.backdrop?R.backdrop.v:BACKDROPS[bdI][0]}</b> <span class="tag t-blue" id="bd-p">${R.backdrop&&R.backdrop.p?R.backdrop.p:pct(BACKDROPS[bdI][3],SUMS.b)}</span></span></div>
     <div class="tr"><span class="k">Quantity</span><b>${nf(issuedOf(g.col))} of ${nf(C.supply)} issued</b></div>
   </div>
-  ${(g.mine&&(si.m>1.005||mt.tags.length))?`<div class="sec-t">Оценка</div><div class="table">
+  ${((g.mine||g.foreign)&&(si.m>1.005||mt.tags.length))?`<div class="sec-t">Оценка</div><div class="table">
     ${si.m>1.005?`<div class="tr"><span class="k">Номер</span><span><b class="amber">${si.tags.length?' '+si.tags.join(' · '):'#'+nf(g.serial)}</b> <span class="tag t-green">×${si.m}</span></span></div>`:''}
     ${mt.tags.length?`<div class="tr"><span class="k">Сочетание</span><b class="amber" style="text-align:right"> ${mt.tags.join(' · ')} · ×${mt.m}</b></div>`:''}
   </div>`:''}
@@ -1122,7 +1131,7 @@ function doUpgrade(){
       clearInterval(iv);$('r-p').classList.remove('spin');$('r-p-v').textContent=PATTERNS[r.pi][0];$('r-p-p').textContent=patPct(r);
       Object.assign(g,{mi:r.mi,bi:r.bi,pi:r.pi,serial:r.serial,base:false,bought:+(g.bought+cost).toFixed(2)});
       UI.upBusy=false;UI.upId=null;sfx.sale();vib([30,50,30]);log(`Апгрейд ${g.col} #${g.serial}`,'-'+f2(cost),'amber');
-      const fv=fair(g),si=serialInfo(g.serial);
+      const fv=fair(g),si=serialInfo(g.serial,g.col);
       if(jackpot){confetti(260);toast(` ДЖЕКПОТ! ${g.col} #${g.serial} · оценка ${f2(fv)} TON`,'ok')}
       else if(fv>=g.bought||si.m>=1.5)confetti(100);
       if(!jackpot)toast(` ${g.col} #${g.serial}${si.tags.length?'  '+si.tags[0]:''} · оценка ${f2(fv)} TON (вложено ${f2(g.bought)})`,fv>=g.bought?'ok':'bad');
@@ -1192,6 +1201,10 @@ function renderProfile(){
       <div class="panel" style="margin:0"><div class="mut">Оборот</div><div class="big blue" style="font-size:20px">${f2(S.vol)}</div></div>
       <div class="panel" style="margin:0"><div class="mut">Потрачено</div><div class="big" style="font-size:20px">${f2(S.spent)}</div></div>
       <div class="panel" style="margin:0"><div class="mut">Статус комиссии</div><div style="font-weight:800;font-size:13px;margin-top:4px">${tierName()}</div></div></div>`;
+  }else if(UI.ptab==='friends'){
+    const fr=S.friends||[];
+    h=fr.length?fr.map(f=>`<div class="urow" onclick="openUser('${escH(f.u)}')"><span class="row" style="gap:10px;min-width:0"><span class="uav">${escH(f.u[0].toUpperCase())}</span><span style="min-width:0"><b style="font-size:14px">@${escH(f.u)}</b><div class="mut" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(f.n||'')}</div></span></span><span class="blue" style="font-size:18px">›</span></div>`).join('')+'<p class="mut" style="text-align:center;margin-top:10px">Нажмите на друга, чтобы открыть его профиль.</p>'
+      :'<div class="empty">Друзей пока нет.<br>Найдите игрока по @юзернейму выше и добавьте его в друзья.</div>';
   }else if(UI.top&&UI.top.length){
     loadTop();h=renderTopReal();
   }else{
@@ -1345,6 +1358,13 @@ function cleanGift(g){
   const i=(v,a,b)=>Math.max(a,Math.min(b,Math.floor(Number(v))||0));
   return{col:g.col,serial:i(g.serial,1,1000000),mi:i(g.mi,0,MODELS.length-1),bi:i(g.bi,0,BACKDROPS.length-1),pi:i(g.pi,0,PATTERNS.length-1)};
 }
+function toggleFriend(){
+  const p=UI.vu;if(!p)return;S.friends=S.friends||[];
+  const i=S.friends.findIndex(x=>x.u===p.username);
+  if(i>=0){S.friends.splice(i,1);toast('Убран из друзей')}
+  else{S.friends.push({u:p.username,n:p.name||''});toast('@'+p.username+' добавлен в друзья','ok')}
+  sfx.click();save();renderUser(p);if(UI.tab==='profile')renderProfile();
+}
 async function openUser(name){
   sfx.click();
   $('sheet').innerHTML='<div class="sbody"><div class="empty">Загрузка…</div></div>';$('modal').classList.remove('hidden');
@@ -1353,6 +1373,9 @@ async function openUser(name){
 }
 function renderUser(p){
   const cl=COLORS[p.col]||COLORS[0],w=cleanGift(p.worn),gifts=(p.gifts||[]).map(cleanGift).filter(Boolean),st=p.stats||{};
+  gifts.forEach((g,i)=>{g.id=-(i+1);g.foreign=true;g.seller='@'+p.username;g.owner=p.username});
+  UI.fg=gifts;UI.vu=p;
+  const gval=gifts.reduce((a,g)=>a+fair(g),0),isFr=(S.friends||[]).some(x=>x.u===p.username);
   const cover=w?coverBase(w):`linear-gradient(160deg,${cl[0]},${cl[1]})`;
   if(w)buildCover(w,()=>{});
   const f=n=>f2(+n||0),sg=n=>((+n||0)>=0?'+':'')+f(n);
@@ -1363,13 +1386,14 @@ function renderUser(p){
     <div class="tg-name"><span>${escH(p.name)}</span>${w?`<span class="estg" style="background:${bg(w)}"><b>${ini(w.col)}</b>${imgTag(w)}</span>`:''}</div>
     <div class="tg-status">@${escH(p.username)} · был(а) ${escH(seen)}</div></div>
    ${p.bio?`<div class="panel" style="padding:11px 14px">${escH(p.bio)}</div>`:''}
+   ${p.username!==ACC?`<button class="buy ${isFr?'ghost':''}" style="margin-bottom:12px" onclick="toggleFriend()">${isFr?'✓ В друзьях · убрать':'Добавить в друзья'}</button>`:''}
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
     <div class="panel" style="margin:0"><div class="mut">Капитал</div><div class="big blue" style="font-size:20px">${f(p.worth)}</div></div>
     <div class="panel" style="margin:0"><div class="mut">Чистая прибыль</div><div class="big ${(+st.profit||0)>=0?'green':'red'}" style="font-size:20px">${sg(st.profit)}</div></div>
     <div class="panel" style="margin:0"><div class="mut">Сделок продажи</div><div class="big" style="font-size:20px">${+st.flips||0}</div></div>
     <div class="panel" style="margin:0"><div class="mut">Лучший флип</div><div class="big amber" style="font-size:20px">+${f(st.best)}</div></div></div>
-   <div class="row" style="justify-content:space-between;margin-bottom:10px"><b>Подарки: ${+p.count||0}</b></div>
-   ${gifts.length?`<div class="grid3">${gifts.map(g=>`<div class="art mini" style="background:${bg(g)};border-radius:18px">${artInner(g)}<span class="badge" style="top:auto;bottom:6px;left:6px;font-size:9px">#${nf(g.serial)}</span></div>`).join('')}</div>`:'<div class="empty">Пока нет коллекционных подарков</div>'}
+   <div class="row" style="justify-content:space-between;margin-bottom:10px"><b>Подарки: ${+p.count||0}</b><span class="mut">≈ ${f(gval)} TON</span></div>
+   ${gifts.length?`<div class="grid3">${gifts.map(g=>`<div class="art mini" style="background:${bg(g)};border-radius:18px" onclick="openGift(${g.id})">${artInner(g)}<span class="badge" style="top:auto;bottom:6px;left:6px;font-size:9px">#${nf(g.serial)}</span></div>`).join('')}</div>`:'<div class="empty">Пока нет коллекционных подарков</div>'}
    <button class="buy ghost" style="margin-top:14px" onclick="closeModal()">Закрыть</button></div>`;
 }
 
