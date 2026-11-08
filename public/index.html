@@ -1294,10 +1294,8 @@ function closeAuth(guest){
 function showAuth(mode){
   mode=mode||'login';UI.authMode=mode;const reg=mode==='register';
   $('auth-body').innerHTML=`<div style="text-align:center;margin:6px 0 16px"><div style="font-size:22px;font-weight:900">Portals Market</div><div class="mut" style="margin-top:4px;line-height:1.45">${reg?'Создайте аккаунт, чтобы сохранять прогресс и показывать профиль друзьям':'Войдите, чтобы продолжить игру'}</div></div>
-  <div class="mut" style="margin-bottom:6px">Юзернейм</div>
-  <input id="a-user" class="input" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="латиница, цифры, _" style="margin-bottom:10px">
-  <div class="mut" style="margin-bottom:6px">Пароль</div>
-  <input id="a-pass" class="input" type="password" maxlength="100" autocomplete="${reg?'new-password':'current-password'}" placeholder="минимум 6 символов" style="margin-bottom:6px" onkeydown="if(event.key==='Enter')submitAuth()">
+  <input id="a-user" class="input" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="Юзернейм" style="margin-bottom:10px">
+  <input id="a-pass" class="input" type="password" maxlength="100" autocomplete="${reg?'new-password':'current-password'}" placeholder="Пароль" style="margin-bottom:6px" onkeydown="if(event.key==='Enter')submitAuth()">
   <div id="a-err" class="red" style="font-size:12px;min-height:18px;margin-bottom:8px"></div>
   <button class="buy" id="a-btn" style="height:46px" onclick="submitAuth()">${reg?'Создать аккаунт':'Войти'}</button>
   <button class="pill" style="width:100%;justify-content:center;margin-top:10px;height:40px" onclick="showAuth('${reg?'login':'register'}')">${reg?'Уже есть аккаунт? Войти':'Нет аккаунта? Регистрация'}</button>
@@ -1307,7 +1305,7 @@ function showAuth(mode){
 async function submitAuth(){
   const u=$('a-user').value.trim(),p=$('a-pass').value,reg=UI.authMode==='register',er=$('a-err'),btn=$('a-btn');
   er.textContent='';
-  if(!/^[A-Za-z0-9_]{3,20}$/.test(u)){er.textContent='Юзернейм: 3–20 символов, латиница, цифры и _';return}
+  if(!/^[A-Za-z0-9_]{3,20}$/.test(u)){er.textContent='Юзернейм: от 3 до 20 символов, только a–z, 0–9 и _';return}
   if(p.length<6){er.textContent='Пароль: минимум 6 символов';return}
   btn.disabled=true;btn.style.opacity=.6;
   try{
@@ -1334,7 +1332,7 @@ let _st=0;
 function searchUsers(v){
   clearTimeout(_st);v=String(v).trim().replace(/^@/,'');const box=$('pres');
   if(!v){box.innerHTML='';return}
-  if(!/^[A-Za-z0-9_]{1,20}$/.test(v)){box.innerHTML='<div class="mut" style="padding:8px 2px">Только латиница, цифры и _</div>';return}
+  if(!/^[A-Za-z0-9_]{1,20}$/.test(v)){box.innerHTML='<div class="mut" style="padding:8px 2px">Юзернейм: только a–z, 0–9 и _</div>';return}
   _st=setTimeout(async()=>{
     try{
       const r=await api('/search?q='+encodeURIComponent(v));
