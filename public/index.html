@@ -4,6 +4,19 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Portals Market — Симулятор</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+/* Telegram Mini App: на весь экран, без закрытия свайпом */
+(function(){try{
+  var tg=window.Telegram&&Telegram.WebApp;
+  if(!tg||!tg.initData)return;           /* не внутри Telegram — ничего не делаем */
+  document.documentElement.classList.add('tgapp');
+  tg.ready();tg.expand();
+  try{tg.disableVerticalSwipes&&tg.disableVerticalSwipes()}catch(e){}
+  try{tg.setHeaderColor('#07080d');tg.setBackgroundColor('#07080d');tg.setBottomBarColor&&tg.setBottomBarColor('#07080d')}catch(e){}
+  try{if(tg.isVersionAtLeast&&tg.isVersionAtLeast('8.0')&&(tg.platform==='android'||tg.platform==='ios')&&!tg.isFullscreen)tg.requestFullscreen()}catch(e){}
+}catch(e){}})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -287,6 +300,13 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 .urow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin-top:6px;border-radius:18px;background:var(--surface2);border:1px solid var(--line);cursor:pointer}
 .urow:active{transform:scale(.98)}
 .uav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;background:linear-gradient(135deg,#2490ff,#a78bfa);flex:none}
+
+/* ===== Telegram Mini App ===== */
+.tgapp .app{max-width:480px;height:100vh;height:100dvh;margin:0 auto;border-radius:0;border:0;box-shadow:none}
+.tgapp .hdr{padding-top:calc(14px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
+.tgapp .nav{bottom:calc(12px + env(safe-area-inset-bottom) + var(--tg-safe-area-inset-bottom,0px))}
+.tgapp #toasts{top:calc(12px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
+.tgapp body,.tgapp html{overscroll-behavior:none}
 </style>
 </head>
 <body>
