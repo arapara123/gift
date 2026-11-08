@@ -588,12 +588,13 @@ function matchInfo(g){
   const tags=[];let m=1;const b=BD_HSL[g.bi];
   if(b.s>=.2){
     let d=Math.abs(giftHue(g)-b.h);d=Math.min(d,360-d);
-    if(d<=12){m=1.7;tags.push('Идеальное совпадение цвета')}
-    else if(d<=25){m=1.35;tags.push('Гармония с фоном')}
-    else if(Math.abs(d-180)<=14){m=1.2;tags.push('Контраст с фоном')}
+    if(d<=12){m=3.2;tags.push('Идеальное совпадение цвета')}
+    else if(d<=25){m=2.1;tags.push('Гармония с фоном')}
+    else if(d<=40){m=1.45;tags.push('Красивое сочетание')}
+    else if(Math.abs(d-180)<=16){m=1.4;tags.push('Контраст с фоном')}
   }
   let c=0;if(MODELS[g.mi][1]<=4)c++;if(BACKDROPS[g.bi][3]<=5)c++;if(PATTERNS[g.pi][2]<=8)c++;
-  if(c===2){m*=1.2;tags.push('Двойная редкость')}else if(c===3){m*=1.5;tags.push('Тройная редкость')}
+  if(c===2){m*=1.4;tags.push('Двойная редкость')}else if(c===3){m*=2;tags.push('Тройная редкость')}
   return{m:+m.toFixed(2),tags};
 }
 function fair(g,noSerial){
@@ -841,7 +842,7 @@ function tick(){
   for(const c of adds){
     const g=mkGift({col:c});g.price=marketPrice(g);S.market.unshift(g);
     const si=serialInfo(g.serial);
-    if(g.price<fair(g)*.9)feed(` ${g.seller} выставил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b> (оценка ${f2(fair(g))})${si.m>=1.3?' ':''}`);
+    if(g.price<fair(g)*.9)feed(` ${g.seller} выставил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
     else if(si.m>=2)feed(` Редкий номер: <b>${g.col} #${g.serial}</b> (${si.tags[0]}) за <b>${f2(g.price)}</b>`);
   }
   save();refresh();
@@ -880,8 +881,8 @@ function resetFilters(){UI.col='ALL';UI.tier='ALL';UI.bd='ALL';UI.snipe=false;UI
 function giftCard(g,mode){
   if(g.base)return `<div class="card mine"><div class="art" style="background:radial-gradient(circle,#4b6a82,#2a3e4f)" onclick="openGift(${g.id})"><div class="emo">${ini(g.col)}</div><span class="badge">Обычный</span></div><div class="ctitle">${g.col}</div><div class="csub"><span>не улучшен</span><span>≈ ${f2(fair(g))} TON</span></div><button class="buy" style="background:#ffb73d;color:#2a1200;box-shadow:none" onclick="openGift(${g.id})"> Улучшить</button></div>`;
   const f=fair(g),disc=Math.round((f-g.price)/f*100),si=serialInfo(g.serial),leg=tierOf(g)==='legendary';
-  const badge=g.mine&&g.listed?'<span class="badge r g">ЛОТ</span>':(!g.mine&&disc>=10)?`<span class="badge r g">−${disc}%</span>`:leg?`<span class="badge r a">${modelPct(g)}</span>`:'';
-  const mt=matchInfo(g),mb=mt.m>=1.35?`<span class="badge r" style="top:auto;bottom:8px"> ×${mt.m}</span>`:'';
+  const badge=g.mine&&g.listed?'<span class="badge r g">ЛОТ</span>':leg?`<span class="badge r a">${modelPct(g)}</span>`:'';
+  const mt=matchInfo(g),mb=(g.mine&&mt.m>=1.35)?`<span class="badge r" style="top:auto;bottom:8px"> ×${mt.m}</span>`:'';
   const sb=si.m>=1.5?`<span class="badge b"> ${si.tags[0]||'Редкий #'}</span>`:'';
   const cls=(g.mine?'mine ':'')+(leg?'leg ':'')+(g.nw?'new ':'')+(g.fl===-1?'pd':g.fl===1?'pu':'');
   let btn;
@@ -952,8 +953,7 @@ function openGift(id,just,keep){
     </div>`;
   }else{
     const disc=Math.round((f-g.price)/f*100);
-    action=`<div class="panel row" style="justify-content:space-between"><div><div class="mut">Цена</div><div class="big">${f2(g.price)} ${TON_SVG}</div></div>
-      <div style="text-align:right"><div class="mut">Оценка</div><div class="big ${disc>=0?'green':'red'}" style="font-size:20px">${f2(f)}</div><div class="mut">${disc>=0?'выгоднее на '+disc:'дороже на '+(-disc)}%</div></div></div>
+    action=`<div class="panel row" style="justify-content:space-between"><div><div class="mut">Цена</div><div class="big">${f2(g.price)} ${TON_SVG}</div></div></div>
       <div class="mut" style="margin:-4px 2px 10px">Ваш баланс: ${f2(S.ton)} TON · кэшбэк 1.5%: +${f2(g.price*.015)}</div>
       <button class="buy" style="height:50px;font-size:15px" onclick="buy(${g.id})">Купить за ${f2(g.price)} ${TON_SVG}</button>`;
   }
@@ -969,7 +969,7 @@ function openGift(id,just,keep){
     <div class="tr"><span class="k">Backdrop</span><span><b id="bd-n">${R.backdrop?R.backdrop.v:BACKDROPS[bdI][0]}</b> <span class="tag t-blue" id="bd-p">${R.backdrop&&R.backdrop.p?R.backdrop.p:pct(BACKDROPS[bdI][3],SUMS.b)}</span></span></div>
     <div class="tr"><span class="k">Quantity</span><b>${nf(issuedOf(g.col))} of ${nf(C.supply)} issued</b></div>
   </div>
-  ${(si.m>1.005||mt.tags.length)?`<div class="sec-t">Оценка</div><div class="table">
+  ${(g.mine&&(si.m>1.005||mt.tags.length))?`<div class="sec-t">Оценка</div><div class="table">
     ${si.m>1.005?`<div class="tr"><span class="k">Номер</span><span><b class="amber">${si.tags.length?' '+si.tags.join(' · '):'#'+nf(g.serial)}</b> <span class="tag t-green">×${si.m}</span></span></div>`:''}
     ${mt.tags.length?`<div class="tr"><span class="k">Сочетание</span><b class="amber" style="text-align:right"> ${mt.tags.join(' · ')} · ×${mt.m}</b></div>`:''}
   </div>`:''}
