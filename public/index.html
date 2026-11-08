@@ -490,53 +490,133 @@ function confetti(n=70){
 /* =================== ДАННЫЕ =================== */
 /* slug совпадает с адресом картинки: https://nft.fragment.com/gift/<slug>-<номер>.medium.jpg */
 const COLS={
- 'Plush Pepe':{slug:'plushpepe',emoji:'',floor:1450,supply:2484},
- "Durov's Cap":{slug:'durovscap',emoji:'',floor:420,supply:3292},
- 'Precious Peach':{slug:'preciouspeach',emoji:'',floor:85,supply:2168},
+ 'Plush Pepe':{slug:'plushpepe',emoji:'',floor:7000,supply:2484},
+ "Durov's Cap":{slug:'durovscap',emoji:'',floor:700,supply:3292},
+ 'Precious Peach':{slug:'preciouspeach',emoji:'',floor:256,supply:2168},
  'Swiss Watch':{slug:'swisswatch',emoji:'⌚',floor:64,supply:11118},
- 'Astral Shard':{slug:'astralshard',emoji:'',floor:48,supply:3012},
+ 'Astral Shard':{slug:'astralshard',emoji:'',floor:121.98,supply:3012},
  'Signet Ring':{slug:'signetring',emoji:'',floor:38.5,supply:7408},
- 'Mini Oscar':{slug:'minioscar',emoji:'',floor:31,supply:2199},
- 'Loot Bag':{slug:'lootbag',emoji:'',floor:29,supply:6696},
- 'Perfume Bottle':{slug:'perfumebottle',emoji:'',floor:22.4,supply:2198},
- 'Vintage Cigar':{slug:'vintagecigar',emoji:'',floor:18.9,supply:9187},
- 'Diamond Ring':{slug:'diamondring',emoji:'',floor:16.5,supply:8743},
+ 'Mini Oscar':{slug:'minioscar',emoji:'',floor:74,supply:2199},
+ 'Loot Bag':{slug:'lootbag',emoji:'',floor:118.29,supply:6696},
+ 'Perfume Bottle':{slug:'perfumebottle',emoji:'',floor:66,supply:2198},
+ 'Vintage Cigar':{slug:'vintagecigar',emoji:'',floor:36,supply:9187},
+ 'Diamond Ring':{slug:'diamondring',emoji:'',floor:29.5,supply:8743},
  'Toy Bear':{slug:'toybear',emoji:'',floor:14.2,supply:30095},
- 'Eternal Rose':{slug:'eternalrose',emoji:'',floor:11.8,supply:5918},
- 'Homemade Cake':{slug:'homemadecake',emoji:'',floor:3.4,supply:33881},
- 'Lol Pop':{slug:'lolpop',emoji:'',floor:2.15,supply:70069},
+ 'Eternal Rose':{slug:'eternalrose',emoji:'',floor:25.35,supply:5918},
+ 'Homemade Cake':{slug:'homemadecake',emoji:'',floor:4.58,supply:33881},
+ 'Lol Pop':{slug:'lolpop',emoji:'',floor:6,supply:70069},
  'Swag Bag':{slug:'swagbag',emoji:'',floor:6.05,supply:22047},
- 'Spiced Wine':{slug:'spicedwine',emoji:'',floor:7,supply:12802},
- 'Spy Agaric':{slug:'spyagaric',emoji:'',floor:15,supply:29451},
+ 'Spiced Wine':{slug:'spicedwine',emoji:'',floor:4.1,supply:12802},
+ 'Spy Agaric':{slug:'spyagaric',emoji:'',floor:4.97,supply:29451},
  'Hex Pot':{slug:'hexpot',emoji:'',floor:14,supply:14965},
- 'Hanging Star':{slug:'hangingstar',emoji:'',floor:11,supply:7338},
- 'Evil Eye':{slug:'evileye',emoji:'',floor:30,supply:18925},
+ 'Hanging Star':{slug:'hangingstar',emoji:'',floor:8.76,supply:7338},
+ 'Evil Eye':{slug:'evileye',emoji:'',floor:7,supply:18925},
  'Sakura Flower':{slug:'sakuraflower',emoji:'',floor:13,supply:14676},
  'Jack-in-the-Box':{slug:'jackinthebox',emoji:'',floor:6,supply:17002},
  'Santa Hat':{slug:'santahat',emoji:'',floor:9,supply:13217},
  'Mood Pack':{slug:'moodpack',emoji:'',floor:7,supply:16941},
- 'Chill Flame':{slug:'chillflame',emoji:'',floor:5,supply:48366},
- 'Stellar Rocket':{slug:'stellarrocket',emoji:'',floor:7,supply:17572},
+ 'Chill Flame':{slug:'chillflame',emoji:'',floor:3.5,supply:48366},
+ 'Stellar Rocket':{slug:'stellarrocket',emoji:'',floor:4.76,supply:17572},
  'Lunar Snake':{slug:'lunarsnake',emoji:'',floor:5,supply:20364},
  'Pretty Posy':{slug:'prettyposy',emoji:'',floor:6,supply:6187},
- 'B-Day Candle':{slug:'bdaycandle',emoji:'',floor:6,supply:25169},
- 'Ginger Cookie':{slug:'gingercookie',emoji:'',floor:8,supply:19144},
- 'Snoop Dogg':{slug:'snoopdogg',emoji:'',floor:7,supply:58825},
- 'Vice Cream':{slug:'vicecream',emoji:'',floor:6,supply:48744},
- 'Easter Egg':{slug:'easteregg',emoji:'',floor:5,supply:28227},
- 'Liberty Figure':{slug:'libertyfigure',emoji:'',floor:7,supply:26076},
- 'Pool Float':{slug:'poolfloat',emoji:'',floor:6,supply:17127},
+ 'B-Day Candle':{slug:'bdaycandle',emoji:'',floor:4.66,supply:25169},
+ 'Ginger Cookie':{slug:'gingercookie',emoji:'',floor:3.95,supply:19144},
+ 'Snoop Dogg':{slug:'snoopdogg',emoji:'',floor:5,supply:58825},
+ 'Vice Cream':{slug:'vicecream',emoji:'',floor:3.45,supply:48744},
+ 'Easter Egg':{slug:'easteregg',emoji:'',floor:3.75,supply:28227},
+ 'Liberty Figure':{slug:'libertyfigure',emoji:'',floor:4.17,supply:26076},
+ 'Pool Float':{slug:'poolfloat',emoji:'',floor:3.6,supply:17127},
  'Clover Pin':{slug:'cloverpin',emoji:'',floor:6,supply:20081},
  'Heart Locket':{slug:'heartlocket',emoji:'',floor:130,supply:1333},
- 'Heroic Helmet':{slug:'heroichelmet',emoji:'',floor:150,supply:1357},
+ 'Heroic Helmet':{slug:'heroichelmet',emoji:'',floor:165.01,supply:1357},
  'Genie Lamp':{slug:'genielamp',emoji:'',floor:60,supply:2794},
- 'Bonded Ring':{slug:'bondedring',emoji:'',floor:70,supply:3015},
+ 'Bonded Ring':{slug:'bondedring',emoji:'',floor:38.88,supply:3015},
  "Khabib's Papakha":{slug:'khabibspapakha',emoji:'',floor:35,supply:3727},
- 'Top Hat':{slug:'tophat',emoji:'',floor:14,supply:9333}
+ 'Top Hat':{slug:'tophat',emoji:'',floor:9.58,supply:9333},
+ 'Algorithm Cup':{slug:'algorithmcup',emoji:'',floor:2210,supply:62},
+ 'Artisan Brick':{slug:'artisanbrick',emoji:'',floor:54.91,supply:3074},
+ 'Berry Box':{slug:'berrybox',emoji:'',floor:8.15,supply:9261},
+ 'Big Year':{slug:'bigyear',emoji:'',floor:3.82,supply:13217},
+ 'Bling Binky':{slug:'blingbinky',emoji:'',floor:110,supply:2226},
+ 'Bow Tie':{slug:'bowtie',emoji:'',floor:16.4,supply:9161},
+ 'Bunny Muffin':{slug:'bunnymuffin',emoji:'',floor:7,supply:7029},
+ 'Candy Cane':{slug:'candycane',emoji:'',floor:8.5,supply:17723},
+ 'Cookie Heart':{slug:'cookieheart',emoji:'',floor:10.1,supply:14102},
+ 'Crystal Ball':{slug:'crystalball',emoji:'',floor:12,supply:8632},
+ 'Cupid Charm':{slug:'cupidcharm',emoji:'',floor:18.2,supply:6090},
+ 'Desk Calendar':{slug:'deskcalendar',emoji:'',floor:6.5,supply:34932},
+ "Durov's Glasses":{slug:'durovsglasses',emoji:'',floor:84.25,supply:728},
+ 'Electric Skull':{slug:'electricskull',emoji:'',floor:24.5,supply:4438},
+ 'Eternal Candle':{slug:'eternalcandle',emoji:'',floor:9.1,supply:12915},
+ 'Faith Amulet':{slug:'faithamulet',emoji:'',floor:10.6,supply:12690},
+ 'Fine Pen':{slug:'finepen',emoji:'',floor:8.4,supply:3926},
+ 'Flying Broom':{slug:'flyingbroom',emoji:'',floor:15.9,supply:6899},
+ 'Fresh Sock':{slug:'freshsock',emoji:'',floor:9.2,supply:12949},
+ 'Gem Signet':{slug:'gemsignet',emoji:'',floor:61,supply:2214},
+ 'Happy Brownie':{slug:'happybrownie',emoji:'',floor:4.25,supply:12274},
+ 'Holiday Drink':{slug:'holidaydrink',emoji:'',floor:3.6,supply:6838},
+ 'Hypno Lollipop':{slug:'hypnolollipop',emoji:'',floor:17.7,supply:9352},
+ 'Ice Cream':{slug:'icecream',emoji:'',floor:3.55,supply:38123},
+ 'Input Key':{slug:'inputkey',emoji:'',floor:8.4,supply:15753},
+ 'Instant Ramen':{slug:'instantramen',emoji:'',floor:6.6,supply:26584},
+ 'Intelligence Cup':{slug:'intelligencecup',emoji:'',floor:2280,supply:28},
+ 'Ion Gem':{slug:'iongem',emoji:'',floor:65.58,supply:2745},
+ 'Ionic Dryer':{slug:'ionicdryer',emoji:'',floor:14.79,supply:2849},
+ 'Jelly Bunny':{slug:'jellybunny',emoji:'',floor:8.3,supply:14477},
+ 'Jester Hat':{slug:'jesterhat',emoji:'',floor:11.9,supply:13887},
+ 'Jingle Bell':{slug:'jinglebell',emoji:'',floor:7.95,supply:9250},
+ 'Jolly Chimp':{slug:'jollychimp',emoji:'',floor:6.5,supply:15934},
+ 'Joyful Bundle':{slug:'joyfulbundle',emoji:'',floor:7.44,supply:4398},
+ 'Kissed Frog':{slug:'kissedfrog',emoji:'',floor:37.98,supply:7745},
+ 'Light Sword':{slug:'lightsword',emoji:'',floor:10.3,supply:17933},
+ 'Love Candle':{slug:'lovecandle',emoji:'',floor:8.5,supply:3430},
+ 'Love Potion':{slug:'lovepotion',emoji:'',floor:14,supply:6940},
+ 'Low Rider':{slug:'lowrider',emoji:'',floor:19.7,supply:6916},
+ 'Lucky Locket':{slug:'luckylocket',emoji:'',floor:300,supply:718},
+ 'Lush Bouquet':{slug:'lushbouquet',emoji:'',floor:5.5,supply:6978},
+ 'Mad Pumpkin':{slug:'madpumpkin',emoji:'',floor:11.11,supply:6863},
+ 'Magic Potion':{slug:'magicpotion',emoji:'',floor:55,supply:3331},
+ 'Mighty Arm':{slug:'mightyarm',emoji:'',floor:72,supply:1865},
+ 'Mirage Lamp':{slug:'miragelamp',emoji:'',floor:84,supply:1960},
+ 'Money Pot':{slug:'moneypot',emoji:'',floor:14.5,supply:9923},
+ 'Moon Pendant':{slug:'moonpendant',emoji:'',floor:8.4,supply:13848},
+ 'Mousse Cake':{slug:'moussecake',emoji:'',floor:21,supply:8481},
+ 'Nail Bracelet':{slug:'nailbracelet',emoji:'',floor:80,supply:1960},
+ 'Neko Helmet':{slug:'nekohelmet',emoji:'',floor:38.5,supply:4313},
+ 'Party Sparkler':{slug:'partysparkler',emoji:'',floor:4.31,supply:22284},
+ 'Pet Snake':{slug:'petsnake',emoji:'',floor:11.9,supply:12364},
+ 'Rare Bird':{slug:'rarebird',emoji:'',floor:24.29,supply:3877},
+ 'Record Player':{slug:'recordplayer',emoji:'',floor:24,supply:5702},
+ 'Resistance Dog':{slug:'resistancedog',emoji:'',floor:110,supply:1068},
+ 'Restless Jar':{slug:'restlessjar',emoji:'',floor:9.0,supply:10156},
+ 'Scared Cat':{slug:'scaredcat',emoji:'',floor:195.79,supply:14539},
+ 'Sharp Tongue':{slug:'sharptongue',emoji:'',floor:42.06,supply:3967},
+ 'Skull Flower':{slug:'skullflower',emoji:'',floor:11,supply:7187},
+ 'Sky Stiletto':{slug:'skystiletto',emoji:'',floor:19.7,supply:6378},
+ 'Sleigh Bell':{slug:'sleighbell',emoji:'',floor:6.16,supply:4459},
+ 'Snake Box':{slug:'snakebox',emoji:'',floor:3.46,supply:10754},
+ 'Snoop Cigar':{slug:'snoopcigar',emoji:'',floor:13.67,supply:19372},
+ 'Snow Globe':{slug:'snowglobe',emoji:'',floor:21,supply:6831},
+ 'Snow Mitten':{slug:'snowmitten',emoji:'',floor:4.49,supply:5331},
+ 'Spring Basket':{slug:'springbasket',emoji:'',floor:5,supply:14062},
+ 'Star Notepad':{slug:'starnotepad',emoji:'',floor:16.4,supply:9662},
+ 'Surge Board':{slug:'surgeboard',emoji:'',floor:6.39,supply:3702},
+ 'Tama Gadget':{slug:'tamagadget',emoji:'',floor:8.6,supply:11767},
+ 'Timeless Book':{slug:'timelessbook',emoji:'',floor:4.19,supply:9919},
+ 'Trapped Heart':{slug:'trappedheart',emoji:'',floor:14.4,supply:9909},
+ 'UFC Strike':{slug:'ufcstrike',emoji:'',floor:15.05,supply:7110},
+ 'Valentine Box':{slug:'valentinebox',emoji:'',floor:10.6,supply:4134},
+ 'Victory Medal':{slug:'victorymedal',emoji:'',floor:9.6,supply:16639},
+ 'Voodoo Doll':{slug:'voodoodoll',emoji:'',floor:8.4,supply:11205},
+ 'Westside Sign':{slug:'westsidesign',emoji:'',floor:91,supply:5341},
+ 'Whip Cupcake':{slug:'whipcupcake',emoji:'',floor:10.1,supply:16378},
+ 'Winter Wreath':{slug:'winterwreath',emoji:'',floor:8.0,supply:10365},
+ 'Witch Hat':{slug:'witchhat',emoji:'',floor:8.9,supply:31583},
+ 'Xmas Stocking':{slug:'xmasstocking',emoji:'',floor:10.9,supply:17112}
 };
 const COL_NAMES=Object.keys(COLS);
 /* реалистичные флоры (TON) — меняйте здесь */
-const REAL_FLOORS={'Plush Pepe':7000,"Durov's Cap":700,'Precious Peach':110,'Swiss Watch':38,'Astral Shard':46,'Signet Ring':50,'Mini Oscar':34,'Loot Bag':21,'Perfume Bottle':13.5,'Vintage Cigar':11,'Diamond Ring':9.2,'Toy Bear':7.8,'Eternal Rose':6.4,'Homemade Cake':2.2,'Lol Pop':6,'Swag Bag':8};
+const REAL_FLOORS={'Plush Pepe':7000,"Durov's Cap":700,'Precious Peach':256,'Swiss Watch':48.99,'Astral Shard':121.98,'Signet Ring':50,'Mini Oscar':74,'Loot Bag':118.29,'Perfume Bottle':66,'Vintage Cigar':36,'Diamond Ring':29.5,'Toy Bear':7.8,'Eternal Rose':25.35,'Homemade Cake':4.58,'Lol Pop':6,'Swag Bag':8};
 for(const k in REAL_FLOORS)COLS[k].floor=REAL_FLOORS[k];
 const MODELS=[['Moscow',28],['Tokyo',24],['Cairo',20],['Havana',16],['Oslo',12],['Lagos',8],['Quito',4],['Birmingham',1.5]];
 const BACKDROPS=[
@@ -558,7 +638,7 @@ const BASE_BUY=.35, UP_FEE=.85, UP_WIN=.3, UP_JACK=.004; /* UP_WIN — общи�
 const KEY='portals_sim_v4';
 let S;
 function freshState(){return{
-  mv:3,ton:50,cashback:0,vol:0,profit:0,flips:0,best:0,spent:0,
+  mv:6,ton:50,cashback:0,vol:0,profit:0,flips:0,best:0,spent:0,
   prof:{name:'Трейдер',user:'portals_flipper',bio:'Флипаю подарки Telegram',av:'',col:0},
   worn:null,pinned:[],friends:[],
   floors:Object.fromEntries(COL_NAMES.map(c=>[c,COLS[c].floor])),
@@ -573,13 +653,13 @@ const TRK={t:0,c:0}; /* t — целевая позиция ползунка ц�
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}cloudSoon()}
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
 function patchState(){
-  const stale=S.mv!==3;
+  const stale=S.mv!==6;
   const d=freshState();for(const k in d)if(S[k]===undefined)S[k]=d[k];
   COL_NAMES.forEach(c=>{if(S.floors[c]==null)S.floors[c]=COLS[c].floor});
   COL_NAMES.forEach(c=>{if(!S.fh[c])S.fh[c]=Array(30).fill(S.floors[c]||COLS[c].floor)});
   // номер определяет всё: пересчитываем признаки по номеру
   [...S.market,...S.inv].forEach(g=>{if(!g.base){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}});
-  if(stale){S.market=S.market.filter(g=>g.mine);S.mv=3;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
+  if(stale){S.market=S.market.filter(g=>g.mine);S.mv=6;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
 }
 
 /* =================== УТИЛИТЫ =================== */
@@ -612,7 +692,6 @@ function serialInfo(s,col){
   if(s<=10){m=6;tags.push('Топ-10')}
   else if(s<=100){m=2.2;tags.push('Топ-100')}
   else if(s<=1000){m=1.3;tags.push('Топ-1000')}
-  else if(s<=Math.min(10000,sup*.5)){m=1.08}
   let pm=1;
   if(str.length>=3&&/^(\d)\1+$/.test(str)){
     /* одинаковые цифры: чем длиннее ряд, тем космически дороже */
@@ -646,7 +725,7 @@ function mkGift(o={}){
   return{id:S.nextId++,col,serial,mi:t.mi,bi:t.bi,pi:t.pi,price:o.price||0,bought:o.bought||0,listed:!!o.listed,mine:!!o.mine,seller:o.seller||pick(BOTS)[0],at:Date.now(),nw:1,fl:0};
 }
 /* ---- сочетание цвета подарка с фоном и комбо редкостей ---- */
-const COL_HUE={'Plush Pepe':125,"Durov's Cap":215,'Precious Peach':18,'Swiss Watch':45,'Astral Shard':275,'Signet Ring':45,'Mini Oscar':45,'Loot Bag':40,'Perfume Bottle':195,'Vintage Cigar':25,'Diamond Ring':190,'Toy Bear':28,'Eternal Rose':350,'Homemade Cake':330,'Lol Pop':320,'Swag Bag':290,'Spiced Wine':350,'Spy Agaric':0,'Hex Pot':280,'Hanging Star':50,'Evil Eye':210,'Sakura Flower':330,'Jack-in-the-Box':40,'Santa Hat':0,'Mood Pack':280,'Chill Flame':20,'Stellar Rocket':210,'Lunar Snake':140,'Pretty Posy':320,'B-Day Candle':45,'Ginger Cookie':28,'Snoop Dogg':130,'Vice Cream':330,'Easter Egg':300,'Liberty Figure':170,'Pool Float':190,'Clover Pin':125,'Heart Locket':350,'Heroic Helmet':45,'Genie Lamp':45,'Bonded Ring':45,"Khabib's Papakha":25,'Top Hat':0};
+const COL_HUE={'Plush Pepe':125,"Durov's Cap":215,'Precious Peach':18,'Swiss Watch':45,'Astral Shard':275,'Signet Ring':45,'Mini Oscar':45,'Loot Bag':40,'Perfume Bottle':195,'Vintage Cigar':25,'Diamond Ring':190,'Toy Bear':28,'Eternal Rose':350,'Homemade Cake':330,'Lol Pop':320,'Swag Bag':290,'Spiced Wine':350,'Spy Agaric':0,'Hex Pot':280,'Hanging Star':50,'Evil Eye':210,'Sakura Flower':330,'Jack-in-the-Box':40,'Santa Hat':0,'Mood Pack':280,'Chill Flame':20,'Stellar Rocket':210,'Lunar Snake':140,'Pretty Posy':320,'B-Day Candle':45,'Ginger Cookie':28,'Snoop Dogg':130,'Vice Cream':330,'Easter Egg':300,'Liberty Figure':170,'Pool Float':190,'Clover Pin':125,'Heart Locket':350,'Heroic Helmet':45,'Genie Lamp':45,'Bonded Ring':45,"Khabib's Papakha":25,'Top Hat':0,'Algorithm Cup':45,'Artisan Brick':15,'Berry Box':340,'Big Year':210,'Bling Binky':190,'Bow Tie':220,'Bunny Muffin':30,'Candy Cane':0,'Cookie Heart':20,'Crystal Ball':270,'Cupid Charm':340,'Desk Calendar':210,"Durov's Glasses":215,'Electric Skull':200,'Eternal Candle':35,'Faith Amulet':45,'Fine Pen':220,'Flying Broom':30,'Fresh Sock':160,'Gem Signet':200,'Happy Brownie':25,'Holiday Drink':0,'Hypno Lollipop':300,'Ice Cream':200,'Input Key':215,'Instant Ramen':35,'Intelligence Cup':45,'Ion Gem':190,'Ionic Dryer':300,'Jelly Bunny':320,'Jester Hat':280,'Jingle Bell':45,'Jolly Chimp':30,'Joyful Bundle':350,'Kissed Frog':125,'Light Sword':210,'Love Candle':350,'Love Potion':340,'Low Rider':0,'Lucky Locket':45,'Lush Bouquet':330,'Mad Pumpkin':25,'Magic Potion':280,'Mighty Arm':25,'Mirage Lamp':40,'Money Pot':125,'Moon Pendant':45,'Mousse Cake':20,'Nail Bracelet':45,'Neko Helmet':320,'Party Sparkler':300,'Pet Snake':130,'Rare Bird':210,'Record Player':25,'Resistance Dog':30,'Restless Jar':270,'Scared Cat':270,'Sharp Tongue':350,'Skull Flower':300,'Sky Stiletto':330,'Sleigh Bell':45,'Snake Box':130,'Snoop Cigar':28,'Snow Globe':200,'Snow Mitten':350,'Spring Basket':100,'Star Notepad':215,'Surge Board':190,'Tama Gadget':280,'Timeless Book':25,'Trapped Heart':350,'UFC Strike':0,'Valentine Box':350,'Victory Medal':45,'Voodoo Doll':28,'Westside Sign':30,'Whip Cupcake':330,'Winter Wreath':130,'Witch Hat':270,'Xmas Stocking':0};
 const MODEL_SHIFT=[0,22,-22,45,-45,75,-75,150];
 function hexHSL(x){const r=parseInt(x.slice(1,3),16)/255,g=parseInt(x.slice(3,5),16)/255,b=parseInt(x.slice(5,7),16)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,l=(mx+mn)/2;let h=0;if(d){h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h=(h*60+360)%360}return{h,s:d?d/(1-Math.abs(2*l-1)):0}}
 const BD_HSL=BACKDROPS.map(b=>hexHSL(b[1]));
@@ -682,7 +761,7 @@ function bdPct(g){return pct(BACKDROPS[g.bi][3],SUMS.b)}
 function patPct(g){return pct(PATTERNS[g.pi][2],SUMS.p)}
 /* часть продавцов не замечает редкий номер — это шанс найти «гем» */
 /* целевое число лотов коллекции: чем дешевле подарок, тем его больше на рынке */
-function baseTarget(c){return clamp(48/Math.pow(COLS[c].floor,.42),1.4,40)}
+function baseTarget(c){return clamp(22/Math.pow(COLS[c].floor,.42),1.2,18)}
 function niceAsk(v){
   if(v<30)return +v.toFixed(2);
   const r=Math.random();
@@ -1123,9 +1202,11 @@ function buyBase(c){
 function renderUp(){
   const bl=bases();
   if(!bl.find(g=>g.id===UI.upId))UI.upId=bl.length?bl[0].id:null;
-  $('up-pills').innerHTML=
-   `<div class="mut" style="width:100%;flex:none;margin-bottom:2px">Купить обычный подарок:</div>`+
-   COL_NAMES.filter(c=>COLS[c].floor<=150).map(c=>`<button class="pill" onclick="if(!UI.upBusy)buyBase('${c}')">${c} · ${f2(baseCost(c))}</button>`).join('');
+  if(!$('up-sel')){
+    const opts=COL_NAMES.filter(c=>COLS[c].floor<=150).sort((x,y)=>COLS[x].floor-COLS[y].floor).map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('');
+    $('up-pills').innerHTML=`<div class="mut" style="width:100%;flex:none;margin-bottom:2px">Купить обычный подарок:</div><select id="up-sel" class="input" style="flex:1;min-width:0;font-size:14px;padding:10px 12px" onchange="renderUp()">${opts}</select><button class="pill on" style="height:44px" onclick="if(!UI.upBusy)buyBase($('up-sel').value)">Купить · <span id="up-cost"></span></button>`;
+  }
+  $('up-cost').textContent=f2(baseCost($('up-sel').value));
   $('up-pills').style.flexWrap='wrap';
   const sel=bl.find(g=>g.id===UI.upId);
   $('up-list').innerHTML=bl.length?bl.map(g=>`<button class="pill ${g.id===UI.upId?'on':''}" onclick="if(!UI.upBusy){UI.upId=${g.id};sfx.click();renderUp()}">${g.col}</button>`).join(''):'<span class="mut">Нет обычных подарков — купите выше</span>';
