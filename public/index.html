@@ -658,7 +658,7 @@ function patchState(){
   COL_NAMES.forEach(c=>{if(S.floors[c]==null)S.floors[c]=COLS[c].floor});
   COL_NAMES.forEach(c=>{if(!S.fh[c])S.fh[c]=Array(30).fill(S.floors[c]||COLS[c].floor)});
   // номер определяет всё: пересчитываем признаки по номеру
-  [...S.market,...S.inv].forEach(g=>{if(!g.base){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}});
+  [...S.market,...S.inv].forEach(g=>{if(!g.base&&!g.bsync){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}});
   if(stale){S.market=S.market.filter(g=>g.mine);S.mv=6;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
 }
 
@@ -843,6 +843,26 @@ function sampleBd(g,cb){
     IMG_BD[k]={E,C,i:bi};cb(IMG_BD[k]);(IMG_Q[k]||[]).forEach(f=>f(IMG_BD[k]));IMG_Q[k]=[];
   }catch(e){}};
   im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=64&h=64&fit=cover&q=70`;
+}
+/* цена должна считаться по тому фону, который реально видно на картинке */
+let _bdT=0;
+function bdDirty(g){
+  clearTimeout(_bdT);
+  _bdT=setTimeout(()=>{
+    if(UI.tab==='market')renderMarket();else if(UI.tab==='inv')renderInv();
+    if(g&&UI.openId===g.id&&!$('modal').classList.contains('hidden'))openGift(g.id,false,true);
+    saveSoon();
+  },250);
+}
+function syncBd(g){
+  if(!g||g.base||g.bsync||g.foreign||UI.render!=='CDN'||!g.serial)return;
+  sampleBd(g,d=>{
+    if(g.bsync)return;g.bsync=1;
+    if(d.i===g.bi)return;
+    const old=fair(g);g.bi=d.i;
+    if(!g.mine&&g.price>0){const nw=fair(g);g.price=+Math.max(.5,g.price*nw/old).toFixed(2)}
+    bdDirty(g);
+  });
 }
 function heroBg(g){const d=IMG_BD[bdKey(g)];return d?`radial-gradient(circle 120px at 50% 40%,rgb(${d.C.join(',')}),rgb(${d.E.join(',')}))`:bg(g)}
 /* Обложка как на Fragment: градиент фона, узор вокруг подарка, сам подарок без квадрата */
@@ -1068,6 +1088,7 @@ function renderMarket(){
   const aff=base.filter(g=>g.price<=S.ton).length,p=UI.pq!=null?UI.pq:(base.length?aff/base.length*100:0);
   if(cap!=null){$('bal-t').textContent='до '+f2(cap)+' TON';$('bal-s').textContent=all.length+' из '+base.length+' лотов'}
   else{$('bal-t').textContent=f2(S.ton)+' TON';$('bal-s').textContent=aff+' из '+base.length+' по карману'}
+  l.forEach(syncBd);
   TRK.t=p;
   setHTML($('mgrid'),l.length?l.map(g=>giftCard(g,'m')).join(''):'<div class="empty" style="grid-column:span 2">Ничего не найдено<br><br><button class="pill on" onclick="resetFilters()">Сбросить фильтры</button></div>');
 }
@@ -1148,6 +1169,7 @@ function openGift(id,just,keep){
   if(g.mine)calcSell(g.id);
   loadReal(g);
   if(COVER[bdKey(g)])applyHeroCover(g);else buildCover(g,()=>{if(!$('modal').classList.contains('hidden'))applyHeroCover(g)});
+  syncBd(g);
   sampleBd(g,d=>{
     if(UI.openId!==g.id||$('modal').classList.contains('hidden'))return;
     const h=$('sheet').querySelector('.hero');if(h&&!h.classList.contains('cov'))h.style.background=heroBg(g);
@@ -1184,6 +1206,7 @@ function renderInv(){
   $('inv-pl').innerHTML=`Нереализ.: <b class="${unreal>=0?'green':'red'}">${unreal>=0?'+':''}${f2(unreal)}</b>`;
   document.querySelectorAll('#inv-seg button').forEach(b=>b.classList.toggle('on',b.dataset.k===UI.invF));
   let l=S.inv;if(UI.invF==='OWN')l=l.filter(g=>!g.listed);if(UI.invF==='LIST')l=l.filter(g=>g.listed);
+  S.inv.forEach(syncBd);
   setHTML($('igrid'),l.length?l.map(g=>giftCard(g,'inv')).join(''):'<div class="empty" style="grid-column:span 2">Здесь пока пусто<br><br><button class="pill on" onclick="go(\'market\')">На маркет</button></div>');
 }
 
