@@ -149,6 +149,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 .tg-av{width:104px;height:104px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:54px;border:3px solid rgba(255,255,255,.4);box-shadow:0 14px 34px rgba(0,0,0,.4);position:relative;z-index:2}
 .tg-name{position:relative;z-index:2;display:flex;justify-content:center;align-items:center;gap:7px;font-size:22px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,.3)}
 .est{font-size:21px;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.estg{position:relative;width:30px;height:30px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;border:1.5px solid rgba(255,255,255,.55);box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.estg b{font-size:10px;font-weight:800;color:rgba(255,255,255,.9);text-shadow:none}
+.estg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s}
+.estg img.ld{opacity:1}
 .tg-status{position:relative;z-index:2;font-size:13px;opacity:.88;margin-top:3px}
 .tg-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px 14px 4px}
 .tg-actions button{background:var(--surface2);border:1px solid var(--line);border-radius:16px;padding:10px 4px;font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--blue2)}
@@ -241,6 +245,37 @@ body{background:#030409}
 .hero.hasimg .hini{display:none}
 .x{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(255,255,255,.1)}
 .hero.cov .himg,.hero.cov .hini{visibility:hidden}
+/* ===== Скругления везде: без острых углов ===== */
+.hero{border-radius:0 0 30px 30px}
+#up-stage{border-radius:26px}
+.tg-cover{margin:6px 12px 0;border-radius:32px}
+.sheet{border-radius:32px 32px 0 0}
+.tg-line:first-child{border-radius:18px 18px 0 0}
+.tg-line:last-child{border-radius:0 0 18px 18px}
+.table,.sheet .table,.sheet .panel{border-radius:22px}
+.panel{border-radius:22px}
+.input{border-radius:18px}
+.reel{border-radius:18px}
+.seg{border-radius:18px}.seg button{border-radius:15px}
+.live{border-radius:16px}
+.toast{border-radius:20px}
+.tg-actions button{border-radius:20px}
+.est{border-radius:10px}
+.chipemv{border-radius:10px}
+.badge,.tag{border-radius:999px}
+.tag{border-radius:10px}
+.art.mini{border-radius:22px!important}
+button,input,.card,.art,.panel,.table{outline:none}
+button:focus-visible,input:focus-visible{outline:2px solid rgba(88,169,255,.7);outline-offset:2px}
+/* ползунок цены на маркете */
+.trk{touch-action:none;cursor:pointer;-webkit-user-select:none;user-select:none}
+.trk::before{content:'';position:absolute;left:-12px;right:-12px;top:-18px;bottom:-18px}
+.trk.drag i,.trk.drag u{transition:none}
+.trk u{width:22px;height:22px}
+.trk i,.trk u{transition:none!important;will-change:left,width}
+input[type=range]::-webkit-slider-thumb{transition:transform .18s cubic-bezier(.2,.9,.3,1),box-shadow .18s}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.18);box-shadow:0 4px 14px rgba(0,0,0,.65)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.6)}
 </style>
 </head>
 <body>
@@ -271,7 +306,7 @@ body{background:#030409}
     <button class="chip rbtn w" id="b-col" onclick="$('mtools').classList.toggle('hidden');this.classList.toggle('col')" title="Свернуть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
   </div>
   <div id="mtools">
-  <div class="bal"><div class="trk"><i id="bfill"></i><u id="bthumb"></u></div><div class="bt"><b id="bal-t">0 TON</b><span id="bal-s">0 подарков</span></div></div>
+  <div class="bal"><div class="trk" id="trk"><i id="bfill"></i><u id="bthumb"></u></div><div class="bt"><b id="bal-t">0 TON</b><span id="bal-s">0 подарков</span></div></div>
   <div class="pills" id="col-pills"></div>
   <div class="pills" style="padding-top:0">
     <button class="pill" id="p-snipe" onclick="UI.snipe=!UI.snipe;renderMarket()"> Выгодные</button>
@@ -305,7 +340,7 @@ body{background:#030409}
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Номер выпадает случайно — а от номера зависят модель, фон, узор и цена. Редкие номера (#7, #777, #1111…) стоят в разы дороже, а если цвет подарка сочетается с фоном — это ещё плюс к цене. Результат может стоить меньше вложенного.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Номер выпадает случайно — а от номера зависят модель, фон, узор и цена. Редкие номера (#7, #777, #1111…) стоят в разы дороже, а если цвет подарка сочетается с фоном — это ещё плюс к цене. Примерно в 30% случаев апгрейд окупается и приносит прибыль, в остальных — результат стоит меньше вложенного. И совсем редко (меньше 1%) выпадает джекпот — номер, который стоит сотни TON.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -454,7 +489,7 @@ const SUMS={m:MODELS.reduce((s,x)=>s+x[1],0),b:BACKDROPS.reduce((s,x)=>s+x[3],0)
 const BOTS=[['@whale_ton','W'],['@pepe_hunter','P'],['@durov_vault','D'],['@fragment_sniper','F'],['@flip_master','F'],['@portals_arb','P'],['@tokyo_drift','T'],['@gift_baron','G']];
 const AVATARS=['','','','','','','','','','','',''];
 const COLORS=[['#2490ff','#a78bfa'],['#34d27b','#2490ff'],['#ff5d73','#ffb73d'],['#a78bfa','#ff5d73'],['#ffb73d','#34d27b'],['#64748b','#1e293b']];
-const BASE_BUY=.35, UP_FEE=.35;
+const BASE_BUY=.35, UP_FEE=.85, UP_WIN=.3, UP_JACK=.004; /* UP_WIN — общий шанс окупиться (включая джекпот), UP_JACK — шанс джекпота */
 
 /* =================== СОСТОЯНИЕ =================== */
 const KEY='portals_sim_v4';
@@ -466,10 +501,12 @@ function freshState(){return{
   floors:Object.fromEntries(COL_NAMES.map(c=>[c,COLS[c].floor])),
   fh:Object.fromEntries(COL_NAMES.map(c=>[c,Array(30).fill(COLS[c].floor)])),
   market:[],inv:[],offers:[],feed:[],hist:[],nextId:1,
+  wave:Object.fromEntries(COL_NAMES.map(c=>[c,1])),
   botProfit:Object.fromEntries(BOTS.map((b,i)=>[b[0],[1840,1150,684,418,196,124,82,59][i]]))
 }}
 const UI={tab:'market',col:'ALL',q:'',snipe:false,gem:false,sort:'PRICE_ASC',invF:'ALL',tier:'ALL',bd:'ALL',upId:null,upBusy:false,ptab:'gifts',
   render:(function(){try{return localStorage.getItem('pr_render')||'CDN'}catch(e){return'CDN'}})()};
+const TRK={t:0,c:0}; /* t — целевая позиция ползунка цены, c — текущая (плавно догоняет цель) */
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
 function patchState(){
@@ -568,10 +605,12 @@ function modelPct(g){return pct(MODELS[g.mi][1],SUMS.m)}
 function bdPct(g){return pct(BACKDROPS[g.bi][3],SUMS.b)}
 function patPct(g){return pct(PATTERNS[g.pi][2],SUMS.p)}
 /* часть продавцов не замечает редкий номер — это шанс найти «гем» */
+/* целевое число лотов коллекции: чем дешевле подарок, тем его больше на рынке */
+function baseTarget(c){return clamp(48/Math.pow(COLS[c].floor,.42),1.4,40)}
 function marketPrice(g){
   const si=serialInfo(g.serial);
-  if(si.m>=1.3&&Math.random()<.1)return +(fair(g,true)*rnd(.95,1.12)).toFixed(2);
-  const f=fair(g);return Math.random()<.07?+(f*rnd(.8,.9)).toFixed(2):+(f*rnd(.98,1.22)).toFixed(2);
+  if(si.m>=1.3&&Math.random()<.16)return +(fair(g,true)*rnd(.95,1.12)).toFixed(2);
+  const f=fair(g);return Math.random()<.12?+(f*rnd(.8,.9)).toFixed(2):+(f*rnd(.98,1.22)).toFixed(2);
 }
 
 /* =================== ВИЗУАЛ ПОДАРКА =================== */
@@ -674,7 +713,7 @@ function toggleImg(){UI.render=UI.render==='CDN'?'EMO':'CDN';try{localStorage.se
 
 /* =================== ИНИЦИАЛИЗАЦИЯ РЫНКА =================== */
 function seedMarket(){
-  COL_NAMES.forEach(c=>{for(let i=0;i<5;i++){const g=mkGift({col:c});g.price=marketPrice(g);S.market.push(g)}});
+  COL_NAMES.forEach(c=>{for(let i=0,n=Math.max(1,Math.round(baseTarget(c)));i<n;i++){const g=mkGift({col:c});g.price=marketPrice(g);S.market.push(g)}});
   const s=mkGift({col:'Swag Bag',mine:true,seller:'me'});s.bought=+(fair(s)).toFixed(2);S.inv.push(s);
   S.worn=s.id;S.pinned=[s.id];
   log('Стартовый баланс','+50.00','emerald');
@@ -704,8 +743,8 @@ function unlist(id){
 }
 function instantSell(id){
   const g=S.inv.find(x=>x.id===id);if(!g)return;
-  const pay=+(fair(g)*0.85*(1-feeRate())).toFixed(2);
-  completeSale(g,pay,fair(g)*.85,'Мгновенная скупка');
+  const pay=+(fair(g)*0.9*(1-feeRate())).toFixed(2);
+  completeSale(g,pay,fair(g)*.9,'Мгновенная скупка');
   closeModal();
 }
 function completeSale(g,net,gross,who){
@@ -759,22 +798,44 @@ function tick(){
   }
   // входящие офферы: всегда НИЖЕ оценки
   const up=S.inv.filter(x=>!x.base);
-  if(up.length&&S.offers.length<3&&Math.random()<.07){
+  if(up.length&&S.offers.length<4&&Math.random()<.11){
     const g=pick(up);if(!S.offers.some(o=>o.gid===g.id)){
-      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b[0],av:b[1],price:+(fair(g)*rnd(.76,.95)).toFixed(2),exp:Date.now()+120000});sfx.offer();vib(40);toast(` Оффер на ${g.col} #${g.serial}`)}
+      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b[0],av:b[1],price:+(fair(g)*rnd(.84,1.0)).toFixed(2),exp:Date.now()+120000});sfx.offer();vib(40);toast(` Оффер на ${g.col} #${g.serial}`)}
   }
   S.offers=S.offers.filter(o=>o.exp>Date.now()&&S.inv.some(g=>g.id===o.gid));
   // боты скупают самые выгодные чужие лоты
   const others=S.market.filter(x=>!x.mine);
-  if(others.length>40&&Math.random()<.6){
+  if(others.length>40&&Math.random()<.45){
     const sorted=[...others].sort((a,b)=>a.price/fair(a)-b.price/fair(b));const g=sorted[Math.floor(Math.random()*4)];
     S.market=S.market.filter(x=>x.id!==g.id);const b=pick(BOTS);S.botProfit[b[0]]=+(S.botProfit[b[0]]+rnd(0,2)).toFixed(1);
     feed(`<b>${b[0]}</b> купил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
   }
   // новые лоты
-  const addN=Math.random()<.35?2:1;
-  for(let i=0;i<addN&&others.length<90;i++){
-    const g=mkGift();g.price=marketPrice(g);S.market.unshift(g);
+  /* волны предложения: дешёвых подарков много, дорогих мало, а количество постоянно «дышит»
+     (например, Plush Pepe то 1 лот, то 10) */
+  const cnt={};S.market.forEach(x=>{if(!x.mine)cnt[x.col]=(cnt[x.col]||0)+1});
+  let adds=[];
+  COL_NAMES.forEach(c=>{
+    const exp=COLS[c].floor>=400;
+    let lw=Math.log(S.wave[c]||1);
+    lw=lw*.9+(Math.random()-.5)*(exp?.9:.5);
+    if(Math.random()<(exp?.07:.03))lw+=(Math.random()<.5?-1:1)*rnd(.7,1.5);
+    lw=clamp(lw,Math.log(exp?.3:.4),Math.log(exp?7:3));
+    S.wave[c]=+Math.exp(lw).toFixed(3);
+    const want=Math.max(1,Math.round(baseTarget(c)*S.wave[c])),have=cnt[c]||0;
+    if(have<want){const n=Math.min(want-have,Math.max(1,Math.ceil((want-have)*.4)));for(let k=0;k<n;k++)adds.push(c)}
+    else if(have>want){
+      let n=Math.ceil((have-want)*.35);
+      while(n-->0){const pool=S.market.filter(x=>!x.mine&&x.col===c);if(pool.length<=want)break;const v=pick(pool);S.market=S.market.filter(x=>x.id!==v.id)}
+    }
+  });
+  adds=adds.sort(()=>Math.random()-.5).slice(0,9);
+  {
+    const ex=adds.find(c=>COLS[c].floor>=400&&(cnt[c]||0)>=5);
+    if(ex)feed(`<b>${ex}</b>: на рынок вышла партия лотов — сейчас ${(cnt[ex]||0)+adds.filter(x=>x===ex).length} шт.`);
+  }
+  for(const c of adds){
+    const g=mkGift({col:c});g.price=marketPrice(g);S.market.unshift(g);
     const si=serialInfo(g.serial);
     if(g.price<fair(g)*.9)feed(` ${g.seller} выставил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b> (оценка ${f2(fair(g))})${si.m>=1.3?' ':''}`);
     else if(si.m>=2)feed(` Редкий номер: <b>${g.col} #${g.serial}</b> (${si.tags[0]}) за <b>${f2(g.price)}</b>`);
@@ -783,8 +844,8 @@ function tick(){
 }
 
 /* =================== ФИЛЬТРЫ =================== */
-function visible(){
-  let l=S.market.filter(g=>{
+function visibleBase(){
+  return S.market.filter(g=>{
     if(UI.col!=='ALL'&&g.col!==UI.col)return false;
     if(UI.bd!=='ALL'&&g.bi!==+UI.bd)return false;
     if(UI.tier!=='ALL'&&tierOf(g)!==UI.tier)return false;
@@ -792,6 +853,15 @@ function visible(){
     if(UI.gem&&serialInfo(g.serial).m<1.3)return false;
     if(UI.q.trim()){const q=UI.q.toLowerCase().trim().replace('#','');if(!(g.col.toLowerCase().includes(q)||String(g.serial).includes(q)||BACKDROPS[g.bi][0].toLowerCase().includes(q)))return false}
     return true});
+}
+/* ползунок: позиция 0–100% = доля самых дешёвых лотов, которые показываем */
+function priceCap(base){
+  if(UI.pq==null||!base.length)return null;
+  const pr=base.map(g=>g.price).sort((a,b)=>a-b);
+  return pr[Math.min(pr.length-1,Math.max(0,Math.ceil(UI.pq/100*pr.length)-1))];
+}
+function visible(){
+  let l=visibleBase();const cap=priceCap(l);if(cap!=null)l=l.filter(g=>g.price<=cap);
   const s=UI.sort;
   if(s==='PRICE_ASC')l.sort((a,b)=>a.price-b.price);
   else if(s==='PRICE_DESC')l.sort((a,b)=>b.price-a.price);
@@ -800,7 +870,7 @@ function visible(){
   return l;
 }
 function cycleSort(){const m=['PRICE_ASC','DEAL','PRICE_DESC','SERIAL'],L={PRICE_ASC:'↑ Цена',DEAL:' Выгода',PRICE_DESC:'↓ Цена',SERIAL:'# Номер'};UI.sort=m[(m.indexOf(UI.sort)+1)%4];$('p-sort').textContent=L[UI.sort];renderMarket()}
-function resetFilters(){UI.col='ALL';UI.tier='ALL';UI.bd='ALL';UI.snipe=false;UI.gem=false;UI.q='';$('q').value='';renderMarket()}
+function resetFilters(){UI.col='ALL';UI.tier='ALL';UI.bd='ALL';UI.snipe=false;UI.gem=false;UI.q='';UI.pq=null;$('q').value='';renderMarket()}
 
 /* =================== РЕНДЕР: МАРКЕТ =================== */
 function giftCard(g,mode){
@@ -822,10 +892,11 @@ function renderMarket(){
   setHTML($('col-pills'),['ALL',...COL_NAMES].map(c=>`<button class="pill ${UI.col===c?'on':''}" onclick="UI.col='${c.replace(/'/g,"\\'")}';renderMarket()">${c==='ALL'?'Все':c}</button>`).join(''));
   $('p-snipe').classList.toggle('on',UI.snipe);$('p-gem').classList.toggle('on',UI.gem);
   const n=(UI.tier!=='ALL')+(UI.bd!=='ALL');$('fcnt').textContent=n;$('fcnt').classList.toggle('hidden',!n);
-  const all=visible(),l=all.slice(0,40);
-  const aff=all.filter(g=>g.price<=S.ton).length,p=all.length?aff/all.length*100:0;
-  $('bal-t').textContent=f2(S.ton)+' TON';$('bal-s').textContent=aff+' из '+all.length+' по карману';
-  $('bfill').style.width=p+'%';$('bthumb').style.left=p+'%';
+  const base=visibleBase(),all=visible(),l=all.slice(0,60),cap=priceCap(base);
+  const aff=base.filter(g=>g.price<=S.ton).length,p=UI.pq!=null?UI.pq:(base.length?aff/base.length*100:0);
+  if(cap!=null){$('bal-t').textContent='до '+f2(cap)+' TON';$('bal-s').textContent=all.length+' из '+base.length+' лотов'}
+  else{$('bal-t').textContent=f2(S.ton)+' TON';$('bal-s').textContent=aff+' из '+base.length+' по карману'}
+  TRK.t=p;
   setHTML($('mgrid'),l.length?l.map(g=>giftCard(g,'m')).join(''):'<div class="empty" style="grid-column:span 2">Ничего не найдено<br><br><button class="pill on" onclick="resetFilters()">Сбросить фильтры</button></div>');
 }
 function openFilters(){
@@ -862,7 +933,7 @@ function openGift(id,just,keep){
     <div class="panel">
       <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="mut">Куплен: <b style="color:#fff">${f2(g.bought)}</b></span><span class="mut">Оценка: <b class="green">${f2(f)}</b></span></div>
       <input id="sell-price" class="input" type="number" step="0.1" min="0.5" value="${d}" oninput="calcSell(${g.id})">
-      <input type="range" id="sell-rng" min="${(f*.7).toFixed(2)}" max="${(f*1.5).toFixed(2)}" step="0.05" value="${d}" style="margin:14px 0 4px" oninput="$('sell-price').value=this.value;calcSell(${g.id})">
+      <input type="range" id="sell-rng" min="${(f*.7).toFixed(2)}" max="${(f*1.5).toFixed(2)}" step="any" value="${d}" style="margin:14px 0 4px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id})">
       <div class="row" style="justify-content:space-between"><span class="mut">−30%</span><span class="mut">оценка</span><span class="mut">+50%</span></div>
       <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px;font-size:13px">
         <div class="row" style="justify-content:space-between"><span class="mut">Комиссия ${(feeRate()*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
@@ -872,7 +943,7 @@ function openGift(id,just,keep){
       </div>
     </div>
     <div class="row" style="gap:8px">
-      ${g.listed?`<button class="buy red" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="buy ghost" style="flex:1" onclick="instantSell(${g.id})">Скупка ${f2(f*.85*(1-feeRate()))}</button>`}
+      ${g.listed?`<button class="buy red" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="buy ghost" style="flex:1" onclick="instantSell(${g.id})">Скупка ${f2(f*.9*(1-feeRate()))}</button>`}
       <button class="buy" style="flex:1.4" onclick="listGift(${g.id})">${g.listed?'Обновить цену':'Выставить'}</button>
     </div>`;
   }else{
@@ -980,7 +1051,30 @@ function doUpgrade(){
   if(S.ton<cost){toast(`Нужно ${f2(cost)} TON`,'bad');return}
   S.ton=+(S.ton-cost).toFixed(2);S.spent+=cost;S.vol=+(S.vol+cost).toFixed(2);UI.upBusy=true;sfx.buy();
   $('h-bal').textContent=f2(S.ton);
-  const serial=genSerial(COLS[g.col].supply),r=Object.assign({col:g.col,serial},traits(g.col,serial));
+  /* исход определяется броском: джекпот (очень редко) / плюс (всего ~30%) / минус (остальные) */
+  const invested=+(g.bought+cost).toFixed(2),roll=Math.random(),sup=COLS[g.col].supply;
+  const mode=roll<UP_JACK?'jack':roll<UP_WIN?'win':'lose';
+  const mk=sn=>{const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
+  let pickd=null;
+  if(mode==='jack'){
+    /* редкие красивые номера: подбираем те, что дают крупный выигрыш (сотни TON), но не заоблачный */
+    const pool=[7,77,777,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,33333,44444,55555,66666,77777,88888,99999,12345,1337].filter(x=>x<=sup).map(mk);
+    const lo=Math.max(invested*10,150),hi=2500;
+    const ok=pool.filter(c=>c.f>=lo&&c.f<=hi);
+    pickd=ok.length?pick(ok):pool.sort((a,b)=>b.f-a.f)[0];
+  }
+  if(!pickd){
+    let best=null;
+    for(let i=0;i<800;i++){
+      const c=mk(genSerial(sup));
+      const good=mode==='win'?(c.f>=invested*1.08&&c.f<=invested*6):(c.f<invested*.99);
+      if(good){pickd=c;break}
+      if(!best||(mode==='win'?Math.abs(c.f-invested*1.5)<Math.abs(best.f-invested*1.5):c.f<best.f))best=c;
+    }
+    if(!pickd)pickd=best;
+  }
+  const serial=pickd.sn,r=Object.assign({col:g.col,serial},pickd.tr);
+  const jackpot=mode==='jack';
   let t=0;const st=$('up-stage');
   ['r-m','r-b','r-p'].forEach(i=>$(i).classList.add('spin'));
   const iv=setInterval(()=>{t++;sfx.tick();
@@ -992,8 +1086,9 @@ function doUpgrade(){
       Object.assign(g,{mi:r.mi,bi:r.bi,pi:r.pi,serial:r.serial,base:false,bought:+(g.bought+cost).toFixed(2)});
       UI.upBusy=false;UI.upId=null;sfx.sale();vib([30,50,30]);log(`Апгрейд ${g.col} #${g.serial}`,'-'+f2(cost),'amber');
       const fv=fair(g),si=serialInfo(g.serial);
-      if(fv>=g.bought||si.m>=1.5)confetti(100);
-      toast(` ${g.col} #${g.serial}${si.tags.length?'  '+si.tags[0]:''} · оценка ${f2(fv)} TON (вложено ${f2(g.bought)})`,fv>=g.bought?'ok':'bad');
+      if(jackpot){confetti(260);toast(` ДЖЕКПОТ! ${g.col} #${g.serial} · оценка ${f2(fv)} TON`,'ok')}
+      else if(fv>=g.bought||si.m>=1.5)confetti(100);
+      if(!jackpot)toast(` ${g.col} #${g.serial}${si.tags.length?'  '+si.tags[0]:''} · оценка ${f2(fv)} TON (вложено ${f2(g.bought)})`,fv>=g.bought?'ok':'bad');
       save();refresh();setTimeout(()=>openGift(g.id,true),400)}
   },95);
 }
@@ -1009,7 +1104,7 @@ function renderOffers(){
   setHTML($('offers'),S.offers.length?S.offers.map(o=>{const g=S.inv.find(x=>x.id===o.gid);if(!g)return'';const net=o.price*(1-feeRate())-g.bought;const left=Math.max(0,Math.round((o.exp-Date.now())/1000));
     return `<div class="panel row" style="gap:10px"><div style="width:42px;height:42px;border-radius:14px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:20px">${o.av}</div>
     <div style="flex:1;min-width:0"><b style="font-size:13px">${o.bot}</b><div class="mut">${g.col} #${g.serial} · ${left}с</div><div style="font-size:13px"><b>${f2(o.price)}</b> TON <span class="${net>=0?'green':'red'}" style="font-weight:700">(${net>=0?'+':''}${f2(net)})</span></div></div>
-    <button class="buy green" style="width:auto;padding:0 14px" onclick="acceptOffer(${o.oid})">Принять</button><button class="buy ghost" style="width:38px" onclick="declineOffer(${o.oid})">✕</button></div>`}).join(''):'<div class="panel mut" style="text-align:center">Офферы появляются со временем. Они всегда ниже рыночной оценки.</div>');
+    <button class="buy green" style="width:auto;padding:0 14px" onclick="acceptOffer(${o.oid})">Принять</button><button class="buy ghost" style="width:38px" onclick="declineOffer(${o.oid})">✕</button></div>`}).join(''):'<div class="panel mut" style="text-align:center">Офферы появляются со временем. Обычно они чуть ниже рыночной оценки.</div>');
   setHTML($('floors'),COL_NAMES.map(c=>{const t=trendOf(c);return `<div class="panel row" style="padding:10px 14px;margin-bottom:8px;justify-content:space-between;cursor:pointer" onclick="UI.col='${c.replace(/'/g,"\\'")}';go('market')"><span><b style="font-size:13px">${c}</b></span><span class="row" style="gap:12px">${spark(S.fh[c],t>=0)}<span style="text-align:right;min-width:64px"><b>${f2(S.floors[c])}</b><br><span class="${t>=0?'green':'red'}" style="font-size:11px;font-weight:700">${t>=0?'▲ +':'▼ '}${t}%</span></span></span></div>`}).join(''));
   setHTML($('feed'),S.feed.slice(0,12).map(e=>`<div class="panel row" style="padding:9px 12px;margin-bottom:6px;justify-content:space-between;gap:8px;font-size:12px"><span>${e.h}</span><span class="mut">${e.time}</span></div>`).join('')||'<div class="empty">Пока тихо…</div>');
 }
@@ -1041,7 +1136,7 @@ function renderProfile(){
   setHTML($('tg-pat'),coverPattern(w?PATTERNS[w.pi][1]:''));
   $('p-av').style.background=`linear-gradient(135deg,${cl[0]},${cl[1]})`;$('p-av').textContent=(p.name||'?').trim()[0].toUpperCase();
   $('p-name').textContent=p.name;
-  $('p-worn').innerHTML=w?`<span class="est" onclick="openGift(${w.id})" title="${COLS[w.col].name||w.col} #${w.serial}">${ini(w.col)}</span>`:'';
+  setHTML($('p-worn'),w?`<span class="estg" onclick="openGift(${w.id})" title="${w.col} #${w.serial}" style="background:${bg(w)}"><b>${ini(w.col)}</b>${imgTag(w)}</span>`:'');
   $('p-status').textContent=w?`${w.col} #${w.serial.toLocaleString()} · в сети`:'в сети';
   $('p-user').textContent='@'+p.user;$('p-bio').textContent=p.bio||'—';$('p-phone').textContent=fakePhone(p.user);
   document.querySelectorAll('#p-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===UI.ptab));
@@ -1120,6 +1215,24 @@ function refresh(){
 if(!load()){S=freshState();seedMarket();save()}else patchState();
 $('imgb').style.opacity=UI.render==='CDN'?1:.45;
 go('market');
+/* перетаскиваемый ползунок цены */
+(function(){
+  const trk=$('trk');let drag=false;
+  const set=e=>{const r=trk.getBoundingClientRect();UI.pq=clamp((e.clientX-r.left)/r.width*100,0,100);renderMarket()};
+  trk.addEventListener('pointerdown',e=>{drag=true;trk.classList.add('drag');try{trk.setPointerCapture(e.pointerId)}catch(_){}set(e);e.preventDefault()});
+  trk.addEventListener('pointermove',e=>{if(drag)set(e)});
+  const end=()=>{drag=false;trk.classList.remove('drag')};
+  trk.addEventListener('pointerup',end);trk.addEventListener('pointercancel',end);
+  /* плавная анимация: кружок мягко «догоняет» палец/мышь, а не прыгает */
+  let last=performance.now();
+  (function loop(now){
+    const dt=Math.min(64,now-last);last=now;
+    const d=TRK.t-TRK.c;
+    if(Math.abs(d)>.01){TRK.c+=d*(1-Math.exp(-dt/110))}else TRK.c=TRK.t;
+    const f=$('bfill'),u=$('bthumb');if(f){f.style.width=TRK.c+'%';u.style.left=TRK.c+'%'}
+    requestAnimationFrame(loop);
+  })(last);
+})();
 /* автосохранение: при любом изменении, при сворачивании и закрытии вкладки */
 window.addEventListener('pagehide',save);window.addEventListener('beforeunload',save);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
