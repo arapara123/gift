@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Portals Market — Симулятор</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0c10; --surface:#14161c; --surface2:#1b1e26; --surface3:#232733;
+  --line:#272b36; --text:#fff; --muted:#7d8594; --blue:#2490ff; --blue2:#4ea4f5;
+  --green:#34d27b; --red:#ff5d73; --amber:#ffb73d; --purple:#a78bfa;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{background:#06070a;color:var(--text);font-family:Inter,-apple-system,system-ui,sans-serif}
+button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font-family:inherit;color:inherit}
+::-webkit-scrollbar{width:0;height:0}
+.hidden{display:none!important}
+.app{max-width:480px;margin:0 auto;height:100vh;height:100dvh;background:var(--bg);position:relative;display:flex;flex-direction:column;overflow:hidden}
+@media(min-width:700px){.app{height:min(900px,96vh);margin:2vh auto;border-radius:34px;border:1px solid var(--line);box-shadow:0 30px 90px rgba(0,0,0,.8)}}
+/* header */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
+.hdr h1{font-size:19px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-weight:700;font-size:13px}
+.ton{width:14px;height:14px;display:inline-block;vertical-align:-2px}
+.scroll{flex:1;overflow-y:auto;padding:4px 14px 96px}
+/* search / pills */
+.search{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:0 14px;height:42px;flex:1}
+.search input{background:none;border:0;outline:0;width:100%;font-size:14px}
+.search:focus-within{border-color:var(--blue)}
+.row{display:flex;align-items:center;gap:8px}
+.pills{display:flex;gap:7px;overflow-x:auto;padding:10px 0 4px}
+.pill{flex:none;height:34px;padding:0 13px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);font-size:12.5px;font-weight:600;color:#aeb5c2;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.pill.on{background:rgba(36,144,255,.16);border-color:rgba(36,144,255,.6);color:var(--blue2)}
+/* gift card */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:8px;transition:.18s}
+.card:active{transform:scale(.985)}
+.card.mine{border-color:rgba(52,210,123,.5)}
+.art{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.art .pat{position:absolute;inset:0;pointer-events:none}
+.art .pat span{position:absolute;transform:translate(-50%,-50%);opacity:.18;filter:grayscale(1) brightness(0)}
+.art .emo{position:relative;font-size:64px;filter:drop-shadow(0 8px 10px rgba(0,0,0,.4));z-index:2}
+.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:3}
+.badge{position:absolute;top:8px;left:8px;z-index:5;font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.5);backdrop-filter:blur(6px)}
+.badge.r{left:auto;right:8px}
+.badge.g{background:var(--green);color:#04210f}
+.badge.a{background:var(--amber);color:#2a1700}
+.ctitle{font-size:14.5px;font-weight:800;margin:9px 3px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csub{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin:0 3px 8px}
+.buy{width:100%;height:38px;border-radius:999px;background:var(--blue);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 14px rgba(36,144,255,.3)}
+.buy.green{background:var(--green);color:#04210f;box-shadow:none}
+.buy.ghost{background:var(--surface3);box-shadow:none}
+.buy.red{background:rgba(255,93,115,.15);color:var(--red);box-shadow:none}
+/* nav */
+.nav{position:absolute;bottom:0;left:0;right:0;background:rgba(15,16,20,.92);backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:7px 4px calc(7px + env(safe-area-inset-bottom));z-index:30}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);padding:4px 8px;position:relative;min-width:54px}
+.nav button svg{width:21px;height:21px}
+.nav button.on{color:var(--blue)}
+.dot{position:absolute;top:0;right:8px;min-width:16px;height:16px;border-radius:99px;background:var(--amber);color:#000;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center}
+/* sheet */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(5px);z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:480px;max-height:93vh;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:28px 28px 0 0;padding:14px;animation:up .28s cubic-bezier(.16,1,.3,1)}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.hero{position:relative;height:230px;border-radius:22px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:12px}
+.hero .emo{font-size:96px;position:relative;z-index:2;filter:drop-shadow(0 12px 16px rgba(0,0,0,.45));animation:float 3.4s ease-in-out infinite}
+.hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:3}
+@keyframes float{50%{transform:translateY(-6px)}}
+.ring{position:absolute;left:50%;top:50%;pointer-events:none}
+.ring span{position:absolute;transform:translate(-50%,-50%);opacity:.2;filter:grayscale(1) brightness(10)}
+.hero .ttl{position:relative;z-index:4;margin-top:4px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.x{position:absolute;top:10px;right:10px;z-index:6;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center}
+.table{background:var(--surface2);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:12px}
+.tr{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;font-size:13px;border-bottom:1px solid var(--line)}
+.tr:last-child{border:0}
+.tr .k{color:var(--muted)}
+.tag{font-size:10px;font-weight:800;padding:2px 7px;border-radius:7px;margin-left:6px}
+.t-blue{background:rgba(36,144,255,.18);color:var(--blue2)}
+.t-amber{background:rgba(255,183,61,.18);color:var(--amber)}
+.t-purple{background:rgba(167,139,250,.18);color:var(--purple)}
+.panel{background:var(--surface2);border:1px solid var(--line);border-radius:20px;padding:14px;margin-bottom:12px}
+.big{font-size:26px;font-weight:900;letter-spacing:-.02em}
+.mut{color:var(--muted);font-size:12px}
+.input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:16px;font-weight:700;outline:0}
+.input:focus{border-color:var(--blue)}
+input[type=range]{-webkit-appearance:none;width:100%;height:6px;border-radius:99px;background:var(--surface3);outline:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.6)}
+.bar{height:6px;background:var(--surface3);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--green))}
+.green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}.blue{color:var(--blue2)}
+/* bank card */
+.bank{position:relative;border-radius:28px;padding:20px;height:218px;overflow:hidden;background:linear-gradient(135deg,#1c2a44 0%,#0e1320 50%,#1b1440 100%);border:1px solid rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.18);transition:transform .2s}
+.bank:before{content:'';position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent,rgba(36,144,255,.22),transparent 40%,rgba(167,139,250,.22),transparent 80%);animation:spin 12s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bank>*{position:relative}
+.chipemv{width:42px;height:31px;border-radius:8px;background:linear-gradient(135deg,#fde68a,#d4a017);border:1px solid rgba(255,255,255,.35)}
+/* toast */
+#toasts{position:fixed;top:12px;left:0;right:0;z-index:99;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.toast{max-width:440px;width:92%;padding:11px 14px;border-radius:16px;font-size:12.5px;font-weight:600;background:rgba(27,30,38,.96);border:1px solid var(--line);backdrop-filter:blur(12px);animation:up .25s;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.toast.ok{border-color:rgba(52,210,123,.6)}.toast.bad{border-color:rgba(255,93,115,.6)}
+.h2{font-size:15px;font-weight:800;margin:16px 2px 9px;display:flex;justify-content:space-between;align-items:center}
+.empty{text-align:center;padding:40px 16px;color:var(--muted);font-size:13px}
+.seg{display:flex;background:var(--surface2);border-radius:14px;padding:3px;gap:3px;margin-bottom:12px}
+.seg button{flex:1;padding:8px;border-radius:11px;font-size:12px;font-weight:700;color:var(--muted)}
+.seg button.on{background:var(--blue);color:#fff}
+.avatar{width:76px;height:76px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:38px}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid transparent}
+.sw.on{border-color:#fff}
+.reel{background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:9px 6px;text-align:center}
+.reel b{display:block;font-size:12px;margin-top:3px}
+.spin{animation:pulse .2s infinite}
+@keyframes pulse{50%{transform:scale(1.04)}}
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+<div class="app">
+
+<header class="hdr">
+  <h1 onclick="go('market')">Portals Market
+    <svg width="19" height="19" viewBox="0 0 24 24"><path fill="#4ea4f5" d="M12 1.5l2.45 2.13 3.22-.35 1.24 2.99 3.09 1.03-.56 3.19 1.97 2.57-2.18 2.4 1.03 3.09-3.09 1.03-.77 3.15-3.22-.35L12 23.5l-2.45-2.13-3.22.35-.77-3.15-3.09-1.03 1.03-3.09-2.18-2.4 1.97-2.57-.56-3.19 3.09-1.03 1.24-2.99 3.22.35z"/><path fill="#0b0c10" d="M10.4 15.2l-3.1-3.1 1.4-1.4 1.7 1.7 4.5-4.5 1.4 1.4z"/></svg>
+  </h1>
+  <div class="row">
+    <button class="chip" onclick="go('wallet')"><span id="h-bal">0</span><svg class="ton" viewBox="0 0 24 24" fill="#2490ff"><path d="M6 3h12l4 6-10 12L2 9z"/></svg></button>
+    <button class="chip" onclick="toggleSound()" id="snd" style="padding:6px 9px">🔊</button>
+  </div>
+</header>
+
+<!-- MARKET -->
+<main id="v-market" class="scroll">
+  <div class="row" style="margin-bottom:2px">
+    <div class="search">🔍<input id="q" placeholder="Поиск по коллекции, #, фону…" oninput="UI.q=this.value;renderMarket()"></div>
+    <button class="chip" style="height:42px;width:42px;justify-content:center" onclick="openFilters()" title="Фильтры">⚙️<span id="fcnt" class="dot hidden" style="background:var(--blue);color:#fff;top:-3px;right:-3px"></span></button>
+  </div>
+  <div class="pills" id="col-pills"></div>
+  <div class="pills" style="padding-top:0">
+    <button class="pill" id="p-snipe" onclick="UI.snipe=!UI.snipe;renderMarket()">⚡ Выгодные</button>
+    <button class="pill" onclick="cycleSort()" id="p-sort">↑ Цена</button>
+    <button class="pill" onclick="resetFilters()">✕ Сброс</button>
+  </div>
+  <div class="grid" id="mgrid" style="margin-top:6px"></div>
+  <p class="mut" style="text-align:center;padding:16px">@portals · симулятор</p>
+</main>
+
+<!-- INVENTORY -->
+<main id="v-inv" class="scroll hidden">
+  <div class="panel" style="background:linear-gradient(135deg,#1a2133,#14161c)">
+    <div class="mut">Оценка инвентаря</div>
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div class="big" id="inv-val">0</div>
+      <div class="mut" id="inv-pl"></div>
+    </div>
+  </div>
+  <div class="seg" id="inv-seg">
+    <button data-k="ALL" class="on" onclick="UI.invF='ALL';renderInv()">Все</button>
+    <button data-k="OWN" onclick="UI.invF='OWN';renderInv()">В сумке</button>
+    <button data-k="LIST" onclick="UI.invF='LIST';renderInv()">На маркете</button>
+  </div>
+  <div class="grid" id="igrid"></div>
+</main>
+
+<!-- UPGRADE -->
+<main id="v-up" class="scroll hidden">
+  <div class="panel">
+    <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный (заменится, а не добавится). Модель, фон и узор выпадают случайно; результат может стоить меньше вложенного.</p>
+    <div class="pills" id="up-pills" style="padding-top:0"></div>
+    <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
+    <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px">
+      <div class="reel" id="r-m"><span class="mut">Модель</span><b id="r-m-v">—</b><span class="mut" id="r-m-p"></span></div>
+      <div class="reel" id="r-b"><span class="mut">Фон</span><b id="r-b-v">—</b><span class="mut" id="r-b-p"></span></div>
+      <div class="reel" id="r-p"><span class="mut">Узор</span><b id="r-p-v">—</b><span class="mut" id="r-p-p"></span></div>
+    </div>
+    <button class="buy" id="up-btn" onclick="doUpgrade()">Улучшить</button>
+  </div>
+</main>
+
+<!-- OFFERS -->
+<main id="v-offers" class="scroll hidden">
+  <div class="h2"><span>Предложения от покупателей</span><span class="tag t-amber" id="off-cnt">0</span></div>
+  <div id="offers"></div>
+  <div class="h2"><span>Флор коллекций</span></div>
+  <div id="floors"></div>
+  <div class="h2"><span>Лента сделок</span></div>
+  <div id="feed"></div>
+</main>
+
+<!-- WALLET -->
+<main id="v-wallet" class="scroll hidden">
+  <div class="bank" id="bank" onmousemove="tilt(event,this)" onmouseleave="this.style.transform=''">
+    <div class="row" style="justify-content:space-between">
+      <div class="row"><div class="chipemv"></div>
+        <div><div style="font-size:10px;letter-spacing:.2em;color:#9aa6bd;font-weight:700">PORTALS PAY</div><div id="w-tier" style="font-size:11px;color:var(--green);font-weight:700"></div></div></div>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="#38bdf8"><path d="M6 3h12l4 6-10 12L2 9z"/></svg>
+    </div>
+    <div style="margin-top:26px">
+      <div style="font-size:11px;letter-spacing:.14em;color:#9aa6bd">БАЛАНС</div>
+      <div class="row" style="align-items:baseline;gap:8px"><span id="w-bal" style="font-size:36px;font-weight:900;font-family:'JetBrains Mono'"></span><span style="font-weight:800;color:#38bdf8">TON</span></div>
+      <div id="w-usd" class="mut"></div>
+    </div>
+    <div class="row" style="justify-content:space-between;position:absolute;left:20px;right:20px;bottom:18px">
+      <div><div style="font-family:'JetBrains Mono';font-size:12px;letter-spacing:.2em">•••• •••• •••• <span id="w-last"></span></div><div id="w-holder" style="font-size:10px;letter-spacing:.12em;color:#9aa6bd;text-transform:uppercase;margin-top:2px"></div></div>
+      <div style="text-align:right"><div style="font-size:9px;color:#9aa6bd">КЭШБЭК</div><div id="w-cb" class="green" style="font-weight:800;font-size:13px"></div></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <button class="panel" style="margin:0;text-align:left" onclick="claimCashback()"><div style="font-size:20px">💸</div><b style="font-size:13px">Забрать кэшбэк</b><div class="mut">1.5% с каждой покупки</div></button>
+    <div class="panel" style="margin:0"><div class="mut">Следующий VIP</div><div id="w-next" style="font-weight:800;font-size:13px;margin:3px 0 7px"></div><div class="bar"><i id="w-vip-bar" style="width:0"></i></div></div>
+  </div>
+  <div class="panel mut" style="line-height:1.55">Баланс нельзя пополнить или накрутить: деньги появляются только от реальных продаж и кэшбэка. Комиссия маркета снижается с ростом оборота.</div>
+  <div class="h2"><span>История операций</span></div>
+  <div id="w-hist"></div>
+  <button class="buy red" style="margin-top:14px" onclick="resetGame()">Начать игру заново</button>
+</main>
+
+<!-- PROFILE -->
+<main id="v-profile" class="scroll hidden">
+  <div class="panel row" style="gap:14px">
+    <div class="avatar" id="p-av"></div>
+    <div style="flex:1;min-width:0">
+      <div class="row"><b id="p-name" style="font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></b><span id="p-worn"></span></div>
+      <div class="blue" id="p-user" style="font-size:13px;font-weight:600"></div>
+      <div class="mut" id="p-bio" style="margin-top:3px"></div>
+    </div>
+  </div>
+  <button class="buy ghost" onclick="openProfileEdit()">✏️ Редактировать профиль</button>
+  <div class="h2"><span>📌 Витрина подарков</span><span class="mut" id="p-pin-cnt"></span></div>
+  <div class="grid" id="p-show" style="grid-template-columns:repeat(3,1fr);gap:8px"></div>
+  <div class="h2"><span>Статистика</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="panel" style="margin:0"><div class="mut">Чистая прибыль</div><div class="big" id="s-pl" style="font-size:20px"></div></div>
+    <div class="panel" style="margin:0"><div class="mut">Сделок продажи</div><div class="big" id="s-fl" style="font-size:20px"></div></div>
+    <div class="panel" style="margin:0"><div class="mut">Лучший флип</div><div class="big amber" id="s-bf" style="font-size:20px"></div></div>
+    <div class="panel" style="margin:0"><div class="mut">Оборот</div><div class="big blue" id="s-vol" style="font-size:20px"></div></div>
+  </div>
+  <div class="h2"><span>🏆 Топ трейдеров</span></div>
+  <div id="lb"></div>
+</main>
+
+<nav class="nav" id="nav">
+  <button data-t="market" class="on" onclick="go('market')"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Маркет</button>
+  <button data-t="inv" onclick="go('inv')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>Инвентарь</button>
+  <button data-t="up" onclick="go('up')"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 7.1 1-5 4.9 1.2 6.9-6.2-3.3-6.2 3.3L7 14.2 2 9.3l7.1-1z"/></svg>Апгрейд</button>
+  <button data-t="offers" onclick="go('offers')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>Офферы<span class="dot hidden" id="d-off">0</span></button>
+  <button data-t="wallet" onclick="go('wallet')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg>Карта</button>
+  <button data-t="profile" onclick="go('profile')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0114 0z"/></svg>Профиль</button>
+</nav>
+</div>
+
+<div id="modal" class="overlay hidden" onclick="if(event.target===this)closeModal()"><div class="sheet" id="sheet"></div></div>
+
+<script>
+/* =================== ЗВУК =================== */
+let snd=true,ac=null;
+function beep(f,d=.08,t='sine',v=.08,at=0){if(!snd)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+at;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(ac.destination);o.start(n);o.stop(n+d)}catch(e){}}
+const sfx={click:()=>beep(420,.04),buy:()=>{beep(440,.1,'triangle',.12);beep(660,.12,'triangle',.12,.07)},sale:()=>[587,880,1175].forEach((f,i)=>beep(f,.22,'sine',.12,i*.07)),offer:()=>{beep(523,.14);beep(659,.16,'sine',.08,.09)}};
+function toggleSound(){snd=!snd;document.getElementById('snd').textContent=snd?'🔊':'🔇'}
+
+/* =================== ДАННЫЕ =================== */
+/* Slug совпадает с адресом картинки на nft.fragment.com. supply — приблизительный. */
+const COLS={
+ 'Plush Pepe':{slug:'plushpepe',emoji:'🐸',floor:1450,supply:3000},
+ "Durov's Cap":{slug:'durovscap',emoji:'🧢',floor:420,supply:5000},
+ 'Precious Peach':{slug:'preciouspeach',emoji:'🍑',floor:85,supply:15000},
+ 'Swiss Watch':{slug:'swisswatch',emoji:'⌚',floor:64,supply:20000},
+ 'Astral Shard':{slug:'astralshard',emoji:'🔮',floor:48,supply:25000},
+ 'Signet Ring':{slug:'signetring',emoji:'💍',floor:38.5,supply:22000},
+ 'Mini Oscar':{slug:'minioscar',emoji:'🏆',floor:31,supply:30000},
+ 'Loot Bag':{slug:'lootbag',emoji:'💰',floor:29,supply:45000},
+ 'Perfume Bottle':{slug:'perfumebottle',emoji:'🧴',floor:22.4,supply:50000},
+ 'Vintage Cigar':{slug:'vintagecigar',emoji:'🚬',floor:18.9,supply:60000},
+ 'Diamond Ring':{slug:'diamondring',emoji:'💎',floor:16.5,supply:75000},
+ 'Toy Bear':{slug:'toybear',emoji:'🧸',floor:14.2,supply:90000},
+ 'Eternal Rose':{slug:'eternalrose',emoji:'🌹',floor:11.8,supply:100000},
+ 'Homemade Cake':{slug:'homemadecake',emoji:'🎂',floor:3.4,supply:200000},
+ 'Lol Pop':{slug:'lolpop',emoji:'🍭',floor:2.15,supply:250000},
+ 'Swag Bag':{slug:'swagbag',emoji:'🛍️',floor:6.05,supply:250000}
+};
+const COL_NAMES=Object.keys(COLS);
+/* Редкость: вес = «штук на 1000 апгрейдов» (per mille), как в Telegram. */
+const MODELS=[['I',28],['II',24],['III',20],['IV',16],['V',12],['VI',8],['VII',4],['VIII',1.5]];
+const BACKDROPS=[
+ ['Steel Grey','#6b7788','#3a4350',34],['Silver Blue','#7a93b3','#46607f',32],['Cobalt Blue','#3f6fd6','#1f3f8f',26],
+ ['Mint Green','#5cc59a','#2f8566',32],['Jade Green','#3aa575','#1f6a47',26],['Pistachio','#9cc96b','#5f8a38',24],
+ ['Cappuccino','#b79b86','#7a5f4c',30],['Copper','#c27a4b','#7f4526',20],['Chocolate','#7b4f3a','#412419',18],
+ ['Burgundy','#a0334d','#5a1627',14],['Raspberry','#d24a7d','#8a2150',14],['Electric Purple','#9a5df0','#5427b0',12],
+ ['English Violet','#6e5aa8','#3b2c70',16],['Pacific Cyan','#3dbbd1','#1c7a8c',16],['Midnight Blue','#233a6e','#0f1b3d',8],
+ ['Satin Gold','#d9b44a','#8a6a14',5],['Pure Gold','#f0c53d','#a87a00',2.5],['Black','#2a2d36','#0c0d11',3],['Onyx Black','#3a404f','#05060a',1.2]
+];
+const PATTERNS=[['Монета','🪙',30],['Звезда','⭐',28],['Цветок','🌸',26],['Снежинка','❄️',22],['Кость','🦴',18],['Клевер','🍀',14],['Корона','👑',8],['Молния','⚡',4],['Алмаз','💠',1.5]];
+const SUMS={m:MODELS.reduce((s,x)=>s+x[1],0),b:BACKDROPS.reduce((s,x)=>s+x[3],0),p:PATTERNS.reduce((s,x)=>s+x[2],0)};
+const BOTS=[['@whale_ton','🐋'],['@pepe_hunter','🐸'],['@durov_vault','🧢'],['@fragment_sniper','⚡'],['@flip_master','🚀'],['@portals_arb','🤖'],['@tokyo_drift','🏮'],['@gift_baron','🎩']];
+const AVATARS=['👑','😎','🦊','🐺','🚀','💎','🔥','🐼','👾','🧿','🎩','🦄'];
+const COLORS=[['#2490ff','#a78bfa'],['#34d27b','#2490ff'],['#ff5d73','#ffb73d'],['#a78bfa','#ff5d73'],['#ffb73d','#34d27b'],['#64748b','#1e293b']];
+
+/* =================== СОСТОЯНИЕ =================== */
+const KEY='portals_sim_v2';
+let S;
+function freshState(){return{
+  ton:50,cashback:0,vol:0,profit:0,flips:0,best:0,spent:0,
+  prof:{name:'Трейдер',user:'portals_flipper',bio:'Флипаю подарки Telegram',av:'👑',col:0},
+  worn:null,pinned:[],
+  floors:Object.fromEntries(COL_NAMES.map(c=>[c,COLS[c].floor])),
+  trend:Object.fromEntries(COL_NAMES.map(c=>[c,0])),
+  market:[],inv:[],offers:[],feed:[],hist:[],nextId:1,
+  botProfit:Object.fromEntries(BOTS.map((b,i)=>[b[0],[1840,1150,684,418,196,124,82,59][i]]))
+}}
+const UI={tab:'market',col:'ALL',q:'',snipe:false,sort:'PRICE_ASC',invF:'ALL',tier:'ALL',bd:'ALL',upId:null,upBusy:false,render:'CDN'};
+S=null;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
+// UI-поля используем как S.*-ярлыки для краткости
+
+/* =================== УТИЛИТЫ =================== */
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const f2=n=>(Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const TON_SVG='<svg class="ton" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12l4 6-10 12L2 9z"/></svg>';
+function wpick(list,idx){let r=Math.random()*list.reduce((s,x)=>s+x[idx],0);for(let i=0;i<list.length;i++){r-=list[i][idx];if(r<=0)return i}return list.length-1}
+function premium(mille){return 1+0.35*Math.log10(30/Math.max(mille,0.5))}
+function feeRate(){return S.vol>=500?0.03:S.vol>=100?0.04:0.05}
+function tierName(){return S.vol>=500?'VIP 3 · комиссия 3%':S.vol>=100?'VIP 2 · комиссия 4%':'VIP 1 · комиссия 5%'}
+function toast(msg,k=''){const e=document.createElement('div');e.className='toast '+k;e.innerHTML=msg;$('toasts').appendChild(e);setTimeout(()=>{e.style.opacity=0;e.style.transition='.3s';setTimeout(()=>e.remove(),300)},3200)}
+function log(title,amt,color){S.hist.unshift({t:title,a:amt,c:color,time:new Date().toTimeString().slice(0,8)});S.hist=S.hist.slice(0,40)}
+function feed(html){S.feed.unshift({h:html,time:new Date().toTimeString().slice(0,8)});S.feed=S.feed.slice(0,25)}
+
+/* =================== ПОДАРКИ =================== */
+function mkGift(o={}){
+  const col=o.col||pick(COL_NAMES);
+  const mi=o.mi!=null?o.mi:wpick(MODELS,1), bi=o.bi!=null?o.bi:wpick(BACKDROPS,3), pi=o.pi!=null?o.pi:wpick(PATTERNS,2);
+  const sup=COLS[col].supply;
+  const serial=o.serial||Math.max(1,Math.floor(Math.pow(Math.random(),1.15)*sup));
+  const g={id:S.nextId++,col,serial,mi,bi,pi,price:0,bought:o.bought||0,listed:!!o.listed,mine:!!o.mine,seller:o.seller||pick(BOTS)[0],at:Date.now()};
+  if(o.price!=null)g.price=o.price;
+  return g;
+}
+function fair(g){
+  if(g.base)return +(S.floors[g.col]*BASE_BUY).toFixed(2);
+  const mp=premium(MODELS[g.mi][1]*30/SUMS.m*3.3), bp=premium(BACKDROPS[g.bi][3]*30/SUMS.b*19), pp=premium(PATTERNS[g.pi][2]*30/SUMS.p*9);
+  const sr=g.serial<100?1.8:g.serial<1000?1.25:g.serial<10000?1.07:1;
+  return +(S.floors[g.col]*mp*Math.pow(bp,.8)*Math.pow(pp,.5)*sr).toFixed(2);
+}
+const pct=(w,sum)=>(w/sum*100).toFixed(w/sum*100<1?2:1)+'%';
+function modelPct(g){return pct(MODELS[g.mi][1],SUMS.m)}
+function bdPct(g){return pct(BACKDROPS[g.bi][3],SUMS.b)}
+function patPct(g){return pct(PATTERNS[g.pi][2],SUMS.p)}
+function marketPrice(g){const f=fair(g);return Math.random()<.07?+(f*rnd(.8,.9)).toFixed(2):+(f*rnd(.98,1.22)).toFixed(2)}
+
+function patternGrid(emoji,n=12){
+  const pts=[[14,14],[50,9],[86,14],[28,31],[72,31],[10,52],[90,52],[26,74],[74,74],[14,90],[50,93],[86,90]];
+  return '<div class="pat">'+pts.slice(0,n).map((p,i)=>`<span style="left:${p[0]}%;top:${p[1]}%;font-size:${i%2?13:17}px">${emoji}</span>`).join('')+'</div>';
+}
+function bg(g){const b=BACKDROPS[g.bi];return `radial-gradient(circle at 50% 40%,${b[1]} 0%,${b[2]} 100%)`}
+function cdnUrl(g){const n=((g.serial-1)%800)+1;return `https://nft.fragment.com/gift/${COLS[g.col].slug}-${n}.medium.jpg`}
+function artInner(g){
+  const emo=`<div class="emo">${COLS[g.col].emoji}</div>`;
+  const img=UI.render==='CDN'?`<img src="${cdnUrl(g)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">`:'';
+  return patternGrid(PATTERNS[g.pi][1])+emo+img;
+}
+function tierOf(g){const m=MODELS[g.mi][1];return m<=4?'legendary':m<=12?'epic':m<=20?'rare':'common'}
+
+/* =================== ИНИЦИАЛИЗАЦИЯ РЫНКА =================== */
+function seedMarket(){
+  COL_NAMES.forEach(c=>{for(let i=0;i<5;i++){const g=mkGift({col:c});g.price=marketPrice(g);S.market.push(g)}});
+  // стартовый подарок: игрок начинает со скромным набором, купленным по рыночной цене
+  const s=mkGift({col:'Swag Bag',mine:true,seller:'me'});s.bought=+(fair(s)).toFixed(2);S.inv.push(s);
+  S.worn=s.id;S.pinned=[s.id];
+  log('Стартовый баланс','+50.00','emerald');
+}
+
+/* =================== ПОКУПКА / ПРОДАЖА =================== */
+function buy(id){
+  const g=S.market.find(x=>x.id===id);if(!g||g.mine)return;
+  if(S.ton<g.price){toast(`Не хватает ${f2(g.price-S.ton)} TON`,'bad');return}
+  S.ton=+(S.ton-g.price).toFixed(2);S.vol=+(S.vol+g.price).toFixed(2);S.cashback=+(S.cashback+g.price*.015).toFixed(2);S.spent+=g.price;
+  S.market=S.market.filter(x=>x.id!==id);
+  g.mine=true;g.listed=false;g.bought=g.price;g.seller='me';S.inv.unshift(g);
+  sfx.buy();log(`Покупка ${g.col} #${g.serial}`,'-'+f2(g.price),'rose');
+  feed(`Вы купили <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b> TON`);
+  toast(`✅ Куплено: ${g.col} #${g.serial}`,'ok');
+  closeModal();refresh();openGift(g.id,true);
+}
+function listGift(id){
+  const g=S.inv.find(x=>x.id===id),v=parseFloat($('sell-price').value);
+  if(!g||!(v>=0.5)){toast('Введите цену от 0.5 TON','bad');return}
+  g.price=+v.toFixed(2);g.listed=true;if(!S.market.find(x=>x.id===id))S.market.unshift(g);
+  sfx.click();closeModal();toast(`📢 ${g.col} #${g.serial} выставлен за ${f2(g.price)} TON`,'ok');refresh();
+}
+function unlist(id){
+  const g=S.inv.find(x=>x.id===id);if(!g)return;g.listed=false;S.market=S.market.filter(x=>x.id!==id);
+  closeModal();toast('Снято с продажи');refresh();
+}
+function instantSell(id){
+  const g=S.inv.find(x=>x.id===id);if(!g)return;
+  const pay=+(fair(g)*0.85*(1-feeRate())).toFixed(2);
+  completeSale(g,pay,fair(g)*.85,'Мгновенная скупка');
+  closeModal();
+}
+function completeSale(g,net,gross,who){
+  const pl=+(net-g.bought).toFixed(2);
+  S.inv=S.inv.filter(x=>x.id!==g.id);S.market=S.market.filter(x=>x.id!==g.id);S.offers=S.offers.filter(o=>o.gid!==g.id);
+  S.pinned=S.pinned.filter(x=>x!==g.id);if(S.worn===g.id)S.worn=null;
+  S.ton=+(S.ton+net).toFixed(2);S.profit=+(S.profit+pl).toFixed(2);S.flips++;S.vol=+(S.vol+gross).toFixed(2);if(pl>S.best)S.best=pl;
+  sfx.sale();log(`Продажа ${g.col} #${g.serial}`,'+'+f2(net),'emerald');
+  feed(`💰 ${who}: <b>${g.col} #${g.serial}</b> за <b>${f2(gross)}</b> TON (${pl>=0?'+':''}${f2(pl)})`);
+  toast(`💸 Продано ${g.col} #${g.serial}: ${pl>=0?'+':''}${f2(pl)} TON чистыми`,pl>=0?'ok':'bad');
+  refresh();
+}
+function claimCashback(){
+  if(S.cashback<.01){toast('Кэшбэк пока пуст — он копится с покупок');return}
+  const a=S.cashback;S.ton=+(S.ton+a).toFixed(2);S.cashback=0;sfx.sale();log('Кэшбэк','+'+f2(a),'emerald');toast(`+${f2(a)} TON кэшбэка`,'ok');refresh();
+}
+function acceptOffer(oid){
+  const o=S.offers.find(x=>x.oid===oid);if(!o)return;const g=S.inv.find(x=>x.id===o.gid);
+  if(!g){S.offers=S.offers.filter(x=>x.oid!==oid);refresh();return}
+  completeSale(g,+(o.price*(1-feeRate())).toFixed(2),o.price,o.bot);
+}
+function declineOffer(oid){S.offers=S.offers.filter(x=>x.oid!==oid);sfx.click();refresh()}
+
+/* =================== СИМУЛЯЦИЯ РЫНКА =================== */
+function chanceFor(r){return r<=.9?.5:r<=1?.22:r<=1.08?.09:r<=1.2?.03:r<=1.4?.008:.002}
+function tick(){
+  // дрейф флоров (малый случайный шаг)
+  COL_NAMES.forEach(c=>{const d=(Math.random()-.5)*.012;S.floors[c]=+Math.max(COLS[c].floor*.6,S.floors[c]*(1+d)).toFixed(2);S.trend[c]=+(S.trend[c]*.98+d*100).toFixed(1)});
+  // боты покупают ваши лоты
+  for(const g of S.inv.filter(x=>x.listed)){
+    if(Math.random()<chanceFor(g.price/fair(g))){const b=pick(BOTS);const net=+(g.price*(1-feeRate())).toFixed(2);S.cashback=+(S.cashback+g.price*feeRate()*.2).toFixed(2);completeSale(g,net,g.price,b[0]);break}
+  }
+  // входящие офферы: всегда НИЖЕ оценки
+  const up=S.inv.filter(x=>!x.base);
+  if(up.length&&S.offers.length<3&&Math.random()<.07){
+    const g=pick(up);if(!S.offers.some(o=>o.gid===g.id)){
+      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b[0],av:b[1],price:+(fair(g)*rnd(.76,.95)).toFixed(2),exp:Date.now()+120000});sfx.offer();toast(`🔔 Оффер на ${g.col} #${g.serial}`)}
+  }
+  S.offers=S.offers.filter(o=>o.exp>Date.now()&&S.inv.some(g=>g.id===o.gid));
+  // боты скупают чужие лоты
+  const others=S.market.filter(x=>!x.mine);
+  if(others.length>40&&Math.random()<.6){
+    const sorted=[...others].sort((a,b)=>a.price/fair(a)-b.price/fair(b));const g=sorted[Math.floor(Math.random()*4)];
+    S.market=S.market.filter(x=>x.id!==g.id);const b=pick(BOTS);S.botProfit[b[0]]=+(S.botProfit[b[0]]+rnd(0,2)).toFixed(1);
+    feed(`<b>${b[0]}</b> купил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
+  }
+  // новые лоты
+  if(others.length<90){const g=mkGift();g.price=marketPrice(g);S.market.unshift(g);if(g.price<fair(g)*.9)feed(`🔥 ${g.seller} выставил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b> (оценка ${f2(fair(g))})`)}
+  save();refresh();
+}
+
+/* =================== ФИЛЬТРЫ =================== */
+function visible(){
+  let l=S.market.filter(g=>{
+    if(UI.col!=='ALL'&&g.col!==UI.col)return false;
+    if(UI.bd!=='ALL'&&g.bi!==+UI.bd)return false;
+    if(UI.tier!=='ALL'&&tierOf(g)!==UI.tier)return false;
+    if(UI.snipe&&g.price>=fair(g)*.93)return false;
+    if(UI.q.trim()){const q=UI.q.toLowerCase().trim();if(!(g.col.toLowerCase().includes(q)||String(g.serial).includes(q)||BACKDROPS[g.bi][0].toLowerCase().includes(q)))return false}
+    return true});
+  const s=UI.sort;
+  if(s==='PRICE_ASC')l.sort((a,b)=>a.price-b.price);
+  else if(s==='PRICE_DESC')l.sort((a,b)=>b.price-a.price);
+  else if(s==='DEAL')l.sort((a,b)=>a.price/fair(a)-b.price/fair(b));
+  else l.sort((a,b)=>a.serial-b.serial);
+  return l;
+}
+function cycleSort(){const m=['PRICE_ASC','DEAL','PRICE_DESC','SERIAL'],L={PRICE_ASC:'↑ Цена',DEAL:'⚡ Выгода',PRICE_DESC:'↓ Цена',SERIAL:'# Номер'};UI.sort=m[(m.indexOf(UI.sort)+1)%4];$('p-sort').textContent=L[UI.sort];renderMarket()}
+function resetFilters(){UI.col='ALL';UI.tier='ALL';UI.bd='ALL';UI.snipe=false;UI.q='';$('q').value='';renderMarket()}
+
+/* =================== РЕНДЕР: МАРКЕТ =================== */
+function giftCard(g,mode){
+  if(g.base)return `<div class="card mine"><div class="art" style="background:radial-gradient(circle,#4b6a82,#2a3e4f)" onclick="openGift(${g.id})"><div class="emo">${COLS[g.col].emoji}</div><span class="badge">Обычный</span></div><div class="ctitle">${g.col}</div><div class="csub"><span>не улучшен</span><span>≈ ${f2(fair(g))} TON</span></div><button class="buy" style="background:linear-gradient(90deg,#ffb73d,#ff7a3d);color:#2a1200;box-shadow:none" onclick="openGift(${g.id})">⭐ Улучшить</button></div>`;
+  const f=fair(g),disc=Math.round((f-g.price)/f*100);
+  const badge=g.mine&&g.listed?'<span class="badge r g">ЛОТ</span>':(!g.mine&&disc>=10)?`<span class="badge r g">−${disc}%</span>`:tierOf(g)==='legendary'?`<span class="badge r a">${modelPct(g)}</span>`:'';
+  let btn;
+  if(mode==='inv'){btn=g.listed?`<button class="buy green" onclick="openGift(${g.id})">${f2(g.price)} ${TON_SVG} · изм.</button>`:`<button class="buy" onclick="openGift(${g.id})">Продать</button>`}
+  else btn=`<button class="buy" onclick="openGift(${g.id})">${f2(g.price)} ${TON_SVG}</button>`;
+  return `<div class="card ${g.mine?'mine':''}">
+    <div class="art" style="background:${bg(g)}" onclick="openGift(${g.id})">${artInner(g)}<span class="badge">${BACKDROPS[g.bi][0]}</span>${badge}</div>
+    <div class="ctitle">${g.col}</div>
+    <div class="csub"><span>#${g.serial}</span><span>${mode==='inv'?'≈ '+f2(f)+' TON':'Модель '+MODELS[g.mi][0]}</span></div>${btn}</div>`;
+}
+function renderMarket(){
+  $('col-pills').innerHTML=['ALL',...COL_NAMES].map(c=>`<button class="pill ${UI.col===c?'on':''}" onclick="UI.col='${c.replace(/'/g,"\\'")}';renderMarket()">${c==='ALL'?'Все':COLS[c].emoji+' '+c}</button>`).join('');
+  $('p-snipe').classList.toggle('on',UI.snipe);
+  const n=(UI.tier!=='ALL')+(UI.bd!=='ALL');$('fcnt').textContent=n;$('fcnt').classList.toggle('hidden',!n);
+  const l=visible().slice(0,60);
+  $('mgrid').innerHTML=l.length?l.map(g=>giftCard(g,'m')).join(''):'<div class="empty" style="grid-column:span 2">Ничего не найдено<br><br><button class="pill on" onclick="resetFilters()">Сбросить фильтры</button></div>';
+}
+function openFilters(){
+  const tiers=[['ALL','Все модели'],['legendary','Легендарные'],['epic','Эпические'],['rare','Редкие'],['common','Обычные']];
+  $('sheet').innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><b style="font-size:18px">Фильтры</b><button class="x" style="position:static" onclick="closeModal()">✕</button></div>
+  <div class="mut" style="margin:0 0 8px">Редкость модели</div>
+  <div class="pills" style="flex-wrap:wrap;padding-top:0">${tiers.map(t=>`<button class="pill ${UI.tier===t[0]?'on':''}" onclick="UI.tier='${t[0]}';renderMarket();openFilters()">${t[1]}</button>`).join('')}</div>
+  <div class="mut" style="margin:10px 0 8px">Фон</div>
+  <div class="pills" style="flex-wrap:wrap;padding-top:0"><button class="pill ${UI.bd==='ALL'?'on':''}" onclick="UI.bd='ALL';renderMarket();openFilters()">Все фоны</button>${BACKDROPS.map((b,i)=>`<button class="pill ${UI.bd==i?'on':''}" onclick="UI.bd=${i};renderMarket();openFilters()"><i style="width:10px;height:10px;border-radius:50%;background:${b[1]};display:inline-block"></i>${b[0]}</button>`).join('')}</div>
+  <button class="buy" style="margin-top:14px" onclick="closeModal()">Показать подарки</button>`;
+  $('modal').classList.remove('hidden');
+}
+
+/* =================== МОДАЛКА ПОДАРКА (ПОКУПКА / ПРОДАЖА) =================== */
+function rings(emoji){
+  let a='',b='';for(let i=0;i<8;i++){const t=i*Math.PI/4;a+=`<span style="left:${50+Math.cos(t)*34}%;top:${50+Math.sin(t)*34}%;font-size:16px">${emoji}</span>`}
+  for(let i=0;i<12;i++){const t=i*Math.PI/6;b+=`<span style="left:${50+Math.cos(t)*46}%;top:${50+Math.sin(t)*46}%;font-size:13px">${emoji}</span>`}
+  return `<div class="ring" style="width:230px;height:230px;margin:-115px 0 0 -115px;animation:spin 40s linear infinite">${a}</div><div class="ring" style="width:310px;height:310px;margin:-155px 0 0 -155px;animation:spin 55s linear infinite reverse">${b}</div>`;
+}
+function openGift(id,just){
+  sfx.click();
+  const g=S.inv.find(x=>x.id===id)||S.market.find(x=>x.id===id);if(!g)return;
+  if(g.base){UI.upId=g.id;go('up');return}
+  const f=fair(g),C=COLS[g.col],worn=S.worn===g.id,pin=S.pinned.includes(g.id);
+  let action;
+  if(g.mine){
+    const d=g.listed?g.price:Math.max(+(f*1.05).toFixed(2),0.5);
+    action=`${just?'<div class="panel" style="padding:10px 14px;border-color:rgba(52,210,123,.5)" ><b class="green">🎉 Подарок ваш!</b> <span class="mut">Можно надеть статус или выставить на продажу.</span></div>':''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button class="pill ${worn?'on':''}" style="height:42px;justify-content:center" onclick="toggleWear(${g.id})">${C.emoji} ${worn?'Статус надет':'Надеть статус'}</button>
+      <button class="pill ${pin?'on':''}" style="height:42px;justify-content:center" onclick="togglePin(${g.id})">📌 ${pin?'На витрине':'Закрепить'}</button>
+    </div>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="mut">Куплен: <b style="color:#fff">${f2(g.bought)}</b></span><span class="mut">Оценка: <b class="green">${f2(f)}</b></span></div>
+      <input id="sell-price" class="input" type="number" step="0.1" min="0.5" value="${d}" oninput="calcSell(${g.id})">
+      <input type="range" id="sell-rng" min="${(f*.7).toFixed(2)}" max="${(f*1.5).toFixed(2)}" step="0.05" value="${d}" style="margin:14px 0 4px" oninput="$('sell-price').value=this.value;calcSell(${g.id})">
+      <div class="row" style="justify-content:space-between" class="mut"><span class="mut">−30%</span><span class="mut">оценка</span><span class="mut">+50%</span></div>
+      <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px;font-size:13px">
+        <div class="row" style="justify-content:space-between"><span class="mut">Комиссия ${(feeRate()*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
+        <div class="row" style="justify-content:space-between;margin-top:4px"><span class="mut">Вы получите</span><b id="sp-net"></b></div>
+        <div class="row" style="justify-content:space-between;margin-top:4px"><span class="mut">Чистая прибыль</span><b id="sp-pl"></b></div>
+        <div class="row" style="justify-content:space-between;margin-top:4px"><span class="mut">Шанс продажи за ~минуту</span><b id="sp-ch"></b></div>
+      </div>
+    </div>
+    <div class="row" style="gap:8px">
+      ${g.listed?`<button class="buy red" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="buy ghost" style="flex:1" onclick="instantSell(${g.id})">Скупка ${f2(f*.85*(1-feeRate()))}</button>`}
+      <button class="buy" style="flex:1.4" onclick="listGift(${g.id})">${g.listed?'Обновить цену':'Выставить'}</button>
+    </div>`;
+  }else{
+    const disc=Math.round((f-g.price)/f*100);
+    action=`<div class="panel row" style="justify-content:space-between"><div><div class="mut">Цена</div><div class="big">${f2(g.price)} ${TON_SVG}</div></div>
+      <div style="text-align:right"><div class="mut">Оценка</div><div class="big ${disc>=0?'green':'red'}" style="font-size:20px">${f2(f)}</div><div class="mut">${disc>=0?'выгоднее на '+disc:'дороже на '+(-disc)}%</div></div></div>
+      <div class="mut" style="margin:-4px 2px 10px">Ваш баланс: ${f2(S.ton)} TON · кэшбэк 1.5%: +${f2(g.price*.015)}</div>
+      <button class="buy" style="height:50px;font-size:15px" onclick="buy(${g.id})">Купить за ${f2(g.price)} ${TON_SVG}</button>`;
+  }
+  $('sheet').innerHTML=`<div class="hero" style="background:${bg(g)}"><button class="x" onclick="closeModal()">✕</button>${rings(PATTERNS[g.pi][1])}
+    <div style="position:relative;width:130px;height:130px;display:flex;align-items:center;justify-content:center"><div class="emo">${C.emoji}</div>${UI.render==='CDN'?`<img src="${cdnUrl(g)}" referrerpolicy="no-referrer" onerror="this.remove()" style="position:absolute;inset:-50px;width:calc(100% + 100px);height:calc(100% + 100px);object-fit:cover;z-index:3">`:''}</div>
+    <div class="ttl"><div style="font-size:19px;font-weight:900">${g.col}</div><div style="font-size:12px;opacity:.85">Коллекционный подарок #${g.serial.toLocaleString()}</div></div></div>
+  <div class="table">
+    <div class="tr"><span class="k">Владелец</span><b class="blue">${g.mine?'Вы (@'+S.prof.user+')':g.seller}</b></div>
+    <div class="tr"><span class="k">Модель</span><span><b>${MODELS[g.mi][0]}</b><span class="tag t-blue">${modelPct(g)}</span></span></div>
+    <div class="tr"><span class="k">Фон</span><span><b>${BACKDROPS[g.bi][0]}</b><span class="tag t-amber">${bdPct(g)}</span></span></div>
+    <div class="tr"><span class="k">Узор</span><span><b>${PATTERNS[g.pi][0]}</b><span class="tag t-purple">${patPct(g)}</span></span></div>
+    <div class="tr"><span class="k">Выпущено</span><b>${C.supply.toLocaleString()} (прибл.)</b></div>
+  </div>${action}`;
+  $('modal').classList.remove('hidden');
+  if(g.mine)calcSell(g.id);
+}
+function calcSell(id){
+  const g=S.inv.find(x=>x.id===id);if(!g||!$('sell-price'))return;
+  const v=parseFloat($('sell-price').value)||0,net=v*(1-feeRate()),pl=net-g.bought,r=v/fair(g);
+  const rng=$('sell-rng');if(rng&&document.activeElement!==rng)rng.value=v;
+  $('sp-fee').textContent='−'+f2(v*feeRate());$('sp-net').textContent=f2(net)+' TON';
+  $('sp-pl').textContent=(pl>=0?'+':'')+f2(pl)+' TON';$('sp-pl').className=pl>=0?'green':'red';
+  const ch=Math.min(99,Math.round((1-Math.pow(1-chanceFor(r),15))*100));$('sp-ch').textContent=ch+'%';$('sp-ch').className=ch>60?'green':ch>25?'amber':'red';
+}
+function closeModal(){$('modal').classList.add('hidden')}
+function toggleWear(id){S.worn=S.worn===id?null:id;sfx.click();save();refresh();openGift(id)}
+function togglePin(id){const i=S.pinned.indexOf(id);if(i>=0)S.pinned.splice(i,1);else{if(S.pinned.length>=6)S.pinned.shift();S.pinned.push(id)}sfx.click();save();refresh();openGift(id)}
+
+/* =================== ИНВЕНТАРЬ =================== */
+function renderInv(){
+  const val=S.inv.reduce((s,g)=>s+fair(g),0);$('inv-val').innerHTML=f2(val)+' '+TON_SVG;
+  const unreal=S.inv.reduce((s,g)=>s+(fair(g)*(1-feeRate())-g.bought),0);
+  $('inv-pl').innerHTML=`Нереализ.: <b class="${unreal>=0?'green':'red'}">${unreal>=0?'+':''}${f2(unreal)}</b>`;
+  document.querySelectorAll('#inv-seg button').forEach(b=>b.classList.toggle('on',b.dataset.k===UI.invF));
+  let l=S.inv;if(UI.invF==='OWN')l=l.filter(g=>!g.listed);if(UI.invF==='LIST')l=l.filter(g=>g.listed);
+  $('igrid').innerHTML=l.length?l.map(g=>giftCard(g,'inv')).join(''):'<div class="empty" style="grid-column:span 2">🎒<br>Здесь пока пусто<br><br><button class="pill on" onclick="go(\'market\')">На маркет</button></div>';
+  const b=$('nav').querySelector('[data-t=inv]');
+}
+
+/* =================== АПГРЕЙД =================== */
+const BASE_BUY=.35, UP_FEE=.25;
+function upCost(c){return +(S.floors[c]*UP_FEE).toFixed(2)}
+function baseCost(c){return +(S.floors[c]*BASE_BUY).toFixed(2)}
+function bases(){return S.inv.filter(g=>g.base)}
+function buyBase(c){
+  const cost=baseCost(c);
+  if(S.ton<cost){toast(`Нужно ${f2(cost)} TON`,'bad');return}
+  S.ton=+(S.ton-cost).toFixed(2);S.vol=+(S.vol+cost).toFixed(2);
+  const g={id:S.nextId++,col:c,serial:0,mi:0,bi:0,pi:0,price:0,bought:cost,listed:false,mine:true,base:true,seller:'me',at:Date.now()};
+  S.inv.unshift(g);UI.upId=g.id;sfx.buy();log(`Покупка обычного подарка ${c}`,'-'+f2(cost),'rose');
+  toast(`🎁 Куплен обычный подарок «${c}»`,'ok');save();refresh();
+}
+function renderUp(){
+  const bl=bases();
+  if(!bl.find(g=>g.id===UI.upId))UI.upId=bl.length?bl[0].id:null;
+  $('up-pills').innerHTML=
+   `<div class="mut" style="width:100%;flex:none;margin-bottom:2px">Купить обычный подарок:</div>`+
+   COL_NAMES.filter(c=>COLS[c].floor<=100).map(c=>`<button class="pill" onclick="if(!UI.upBusy)buyBase('${c}')">${COLS[c].emoji} ${c} · ${f2(baseCost(c))}</button>`).join('');
+  $('up-pills').style.flexWrap='wrap';
+  const sel=bl.find(g=>g.id===UI.upId);
+  $('up-list').innerHTML=bl.length?bl.map(g=>`<button class="pill ${g.id===UI.upId?'on':''}" onclick="if(!UI.upBusy){UI.upId=${g.id};sfx.click();renderUp()}">${COLS[g.col].emoji} ${g.col}</button>`).join(''):'<span class="mut">Нет обычных подарков — купите выше</span>';
+  $('up-btn').innerHTML=sel?`Улучшить за ${f2(upCost(sel.col))} ${TON_SVG}`:'Выберите подарок';
+  $('up-btn').style.opacity=sel?1:.5;
+  if(!UI.upBusy){
+    $('up-stage').style.background='radial-gradient(circle,#4b6a82,#2a3e4f)';
+    $('up-stage').innerHTML=sel?`<div class="emo">${COLS[sel.col].emoji}</div><div class="ttl" style="font-size:12px;font-weight:800">Готов к улучшению</div>`:'<div class="ttl mut">Выберите подарок</div>';
+    ['r-m','r-b','r-p'].forEach(i=>{$(i+'-v').textContent='—';$(i+'-p').textContent=''});
+  }
+}
+function doUpgrade(){
+  if(UI.upBusy)return;
+  const g=S.inv.find(x=>x.id===UI.upId&&x.base);
+  if(!g){toast('Сначала купите обычный подарок','bad');return}
+  const cost=upCost(g.col);
+  if(S.ton<cost){toast(`Нужно ${f2(cost)} TON`,'bad');return}
+  S.ton=+(S.ton-cost).toFixed(2);S.spent+=cost;S.vol=+(S.vol+cost).toFixed(2);UI.upBusy=true;sfx.buy();
+  $('h-bal').textContent=f2(S.ton);
+  const sup=COLS[g.col].supply;
+  const r={col:g.col,mi:wpick(MODELS,1),bi:wpick(BACKDROPS,3),pi:wpick(PATTERNS,2),serial:Math.max(1,Math.floor(Math.pow(Math.random(),1.15)*sup))};
+  let t=0;const st=$('up-stage');
+  ['r-m','r-b','r-p'].forEach(i=>$(i).classList.add('spin'));
+  const iv=setInterval(()=>{t++;sfx.click();
+    const b=BACKDROPS[t%BACKDROPS.length];
+    if(t<10){$('r-m-v').textContent=MODELS[t%8][0]}else if(t===10){$('r-m').classList.remove('spin');$('r-m-v').textContent=MODELS[r.mi][0];$('r-m-p').textContent=modelPct(r)}
+    if(t<16){$('r-b-v').textContent=b[0];st.style.background=`radial-gradient(circle,${b[1]},${b[2]})`}else if(t===16){$('r-b').classList.remove('spin');$('r-b-v').textContent=BACKDROPS[r.bi][0];$('r-b-p').textContent=bdPct(r);st.style.background=bg(r)}
+    if(t<22){$('r-p-v').textContent=PATTERNS[t%PATTERNS.length][0]}else{
+      clearInterval(iv);$('r-p').classList.remove('spin');$('r-p-v').textContent=PATTERNS[r.pi][0];$('r-p-p').textContent=patPct(r);
+      // ЗАМЕНА: тот же подарок (тот же id) становится коллекционным
+      Object.assign(g,{mi:r.mi,bi:r.bi,pi:r.pi,serial:r.serial,base:false,bought:+(g.bought+cost).toFixed(2)});
+      UI.upBusy=false;UI.upId=null;sfx.sale();log(`Апгрейд ${g.col} #${g.serial}`,'-'+f2(cost),'amber');
+      const fv=fair(g);toast(`🎉 ${g.col} #${g.serial} · оценка ${f2(fv)} TON (вложено ${f2(g.bought)})`,fv>=g.bought?'ok':'bad');
+      save();refresh();setTimeout(()=>openGift(g.id,true),400)}
+  },95);
+}
+
+/* =================== ОФФЕРЫ / ФЛОР / ЛЕНТА =================== */
+function renderOffers(){
+  $('off-cnt').textContent=S.offers.length;
+  $('offers').innerHTML=S.offers.length?S.offers.map(o=>{const g=S.inv.find(x=>x.id===o.gid);if(!g)return'';const net=o.price*(1-feeRate())-g.bought;const left=Math.max(0,Math.round((o.exp-Date.now())/1000));
+    return `<div class="panel row" style="gap:10px"><div style="width:42px;height:42px;border-radius:14px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:20px">${o.av}</div>
+    <div style="flex:1;min-width:0"><b style="font-size:13px">${o.bot}</b><div class="mut">${g.col} #${g.serial} · ${left}с</div><div style="font-size:13px"><b>${f2(o.price)}</b> TON <span class="${net>=0?'green':'red'}" style="font-weight:700">(${net>=0?'+':''}${f2(net)})</span></div></div>
+    <button class="buy green" style="width:auto;padding:0 14px" onclick="acceptOffer(${o.oid})">Принять</button><button class="buy ghost" style="width:38px" onclick="declineOffer(${o.oid})">✕</button></div>`}).join(''):'<div class="panel mut" style="text-align:center">Офферы появляются со временем. Они всегда ниже рыночной оценки.</div>';
+  $('floors').innerHTML=COL_NAMES.map(c=>`<div class="panel row" style="padding:10px 14px;margin-bottom:8px;justify-content:space-between;cursor:pointer" onclick="UI.col='${c.replace(/'/g,"\\'")}';go('market')"><span><span style="font-size:20px">${COLS[c].emoji}</span> <b style="font-size:13px">${c}</b></span><span style="text-align:right"><b>${f2(S.floors[c])}</b><br><span class="${S.trend[c]>=0?'green':'red'}" style="font-size:11px;font-weight:700">${S.trend[c]>=0?'+':''}${S.trend[c]}%</span></span></div>`).join('');
+  $('feed').innerHTML=S.feed.slice(0,12).map(e=>`<div class="panel row" style="padding:9px 12px;margin-bottom:6px;justify-content:space-between;gap:8px;font-size:12px"><span>${e.h}</span><span class="mut">${e.time}</span></div>`).join('')||'<div class="empty">Пока тихо…</div>';
+}
+
+/* =================== КОШЕЛЁК =================== */
+function renderWallet(){
+  $('w-bal').textContent=f2(S.ton);$('w-usd').textContent='≈ $'+f2(S.ton*5.5);$('w-tier').textContent=tierName();
+  $('w-cb').textContent=f2(S.cashback)+' TON';$('w-holder').textContent=S.prof.name;$('w-last').textContent=String(7000+(S.nextId%2999));
+  const nxt=S.vol>=500?null:S.vol>=100?500:100;$('w-next').textContent=nxt?`Оборот ${f2(S.vol)} / ${nxt}`:'Максимальный уровень';$('w-vip-bar').style.width=nxt?Math.min(100,S.vol/nxt*100)+'%':'100%';
+  $('w-hist').innerHTML=S.hist.slice(0,15).map(h=>`<div class="panel row" style="padding:10px 14px;margin-bottom:6px;justify-content:space-between"><div><b style="font-size:13px">${h.t}</b><div class="mut">${h.time}</div></div><b style="font-family:'JetBrains Mono';font-size:13px" class="${h.c==='emerald'?'green':h.c==='amber'?'amber':'red'}">${h.a}</b></div>`).join('');
+}
+function tilt(e,c){const r=c.getBoundingClientRect();c.style.transform=`perspective(900px) rotateX(${(.5-(e.clientY-r.top)/r.height)*12}deg) rotateY(${((e.clientX-r.left)/r.width-.5)*12}deg)`}
+function resetGame(){if(confirm('Сбросить весь прогресс и начать заново?')){localStorage.removeItem(KEY);S=freshState();seedMarket();save();refresh();toast('Новая игра')}}
+
+/* =================== ПРОФИЛЬ =================== */
+function renderProfile(){
+  const p=S.prof,cl=COLORS[p.col];
+  $('p-av').style.background=`linear-gradient(135deg,${cl[0]},${cl[1]})`;$('p-av').textContent=p.av;
+  $('p-name').textContent=p.name;$('p-user').textContent='@'+p.user;$('p-bio').textContent=p.bio;
+  const w=S.inv.find(g=>g.id===S.worn);$('p-worn').innerHTML=w?`<span class="tag t-blue" style="font-size:12px">${COLS[w.col].emoji} #${w.serial}</span>`:'';
+  const pins=S.inv.filter(g=>S.pinned.includes(g.id));$('p-pin-cnt').textContent=pins.length+'/6';
+  $('p-show').innerHTML=pins.length?pins.map(g=>`<div class="art" style="background:${bg(g)};aspect-ratio:1" onclick="openGift(${g.id})">${artInner(g).replace('class="emo"','class="emo" style="font-size:38px"')}<span class="badge" style="top:auto;bottom:6px;left:6px;font-size:9px">#${g.serial}</span></div>`).join(''):'<div class="empty" style="grid-column:span 3">Откройте подарок в инвентаре и нажмите «Закрепить»</div>';
+  $('s-pl').textContent=(S.profit>=0?'+':'')+f2(S.profit);$('s-pl').className='big '+(S.profit>=0?'green':'red');
+  $('s-fl').textContent=S.flips;$('s-bf').textContent='+'+f2(S.best);$('s-vol').textContent=f2(S.vol);
+  const all=[...BOTS.map(b=>({h:b[0],a:b[1],p:S.botProfit[b[0]]})),{h:'@'+p.user+' (вы)',a:p.av,p:S.profit,me:1}].sort((a,b)=>b.p-a.p);
+  $('lb').innerHTML=all.map((t,i)=>`<div class="panel row" style="padding:10px 14px;margin-bottom:6px;justify-content:space-between;${t.me?'border-color:var(--blue)':''}"><span><b class="mut" style="display:inline-block;width:24px">#${i+1}</b>${t.a} <b style="font-size:13px">${t.h}</b></span><b class="${t.p>=0?'green':'red'}" style="font-size:13px">${t.p>=0?'+':''}${f2(t.p)}</b></div>`).join('');
+}
+function openProfileEdit(){
+  const p=S.prof;
+  $('sheet').innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:14px"><b style="font-size:18px">Редактировать профиль</b><button class="x" style="position:static" onclick="closeModal()">✕</button></div>
+  <div class="mut" style="margin-bottom:6px">Аватар</div>
+  <div class="pills" style="flex-wrap:wrap;padding-top:0" id="e-av">${AVATARS.map(a=>`<button class="pill ${p.av===a?'on':''}" style="font-size:20px;height:44px;width:44px;padding:0;justify-content:center" onclick="S.prof.av='${a}';openProfileEdit()">${a}</button>`).join('')}</div>
+  <div class="mut" style="margin:8px 0 6px">Цвет</div>
+  <div class="row" style="margin-bottom:12px">${COLORS.map((c,i)=>`<button class="sw ${p.col===i?'on':''}" style="background:linear-gradient(135deg,${c[0]},${c[1]})" onclick="S.prof.col=${i};openProfileEdit()"></button>`).join('')}</div>
+  <div class="mut" style="margin-bottom:6px">Имя</div><input id="e-name" class="input" maxlength="24" value="${p.name.replace(/"/g,'&quot;')}" style="margin-bottom:10px">
+  <div class="mut" style="margin-bottom:6px">Юзернейм</div><input id="e-user" class="input" maxlength="24" value="${p.user}" style="margin-bottom:10px">
+  <div class="mut" style="margin-bottom:6px">О себе</div><input id="e-bio" class="input" maxlength="70" value="${p.bio.replace(/"/g,'&quot;')}" style="margin-bottom:14px">
+  <button class="buy" onclick="saveProfile()">Сохранить</button>`;
+  $('modal').classList.remove('hidden');
+}
+function saveProfile(){
+  const esc=s=>s.replace(/[<>&"]/g,'');
+  S.prof.name=esc($('e-name').value.trim()||'Трейдер');S.prof.user=esc($('e-user').value.replace(/[^a-zA-Z0-9_]/g,'')||'trader');S.prof.bio=esc($('e-bio').value.trim());
+  save();closeModal();refresh();toast('Профиль сохранён','ok');
+}
+
+/* =================== НАВИГАЦИЯ / ОБНОВЛЕНИЕ =================== */
+function go(t){
+  sfx.click();UI.tab=t;closeModal();
+  ['market','inv','up','offers','wallet','profile'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==t));
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  refresh();
+}
+function refresh(){
+  $('h-bal').textContent=f2(S.ton);
+  const d=$('d-off');d.textContent=S.offers.length;d.classList.toggle('hidden',!S.offers.length);
+  if(UI.tab==='market')renderMarket();
+  else if(UI.tab==='inv')renderInv();
+  else if(UI.tab==='up'&&!UI.upBusy)renderUp();
+  else if(UI.tab==='offers')renderOffers();
+  else if(UI.tab==='wallet')renderWallet();
+  else if(UI.tab==='profile')renderProfile();
+}
+
+if(!load()){S=freshState();seedMarket();save()}
+S.market.forEach(g=>{if(!BACKDROPS[g.bi])g.bi=0});
+S.inv.forEach(g=>{if(!BACKDROPS[g.bi])g.bi=0});
+go('market');
+setInterval(tick,4000);
+</script>
+</body>
+</html>
