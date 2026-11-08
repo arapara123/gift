@@ -280,6 +280,13 @@ button:focus-visible,input:focus-visible{outline:2px solid rgba(88,169,255,.7);o
 input[type=range]::-webkit-slider-thumb{transition:transform .18s cubic-bezier(.2,.9,.3,1),box-shadow .18s}
 input[type=range]:active::-webkit-slider-thumb{transform:scale(1.18);box-shadow:0 4px 14px rgba(0,0,0,.65)}
 input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.6)}
+
+/* ===== аккаунты ===== */
+#auth{align-items:center;justify-content:center;z-index:70}
+#auth .sheet{border-radius:28px;border-bottom:1px solid #23252c;width:calc(100% - 28px);max-width:400px;max-height:90vh}
+.urow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin-top:6px;border-radius:18px;background:var(--surface2);border:1px solid var(--line);cursor:pointer}
+.urow:active{transform:scale(.98)}
+.uav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;background:linear-gradient(135deg,#2490ff,#a78bfa);flex:none}
 </style>
 </head>
 <body>
@@ -415,6 +422,11 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
     <button onclick="go('market')">Маркет</button>
     <button onclick="shareProfile()">Поделиться</button>
   </div>
+  <div class="tg-sec" style="padding:12px 14px">
+    <div class="search" style="height:42px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7d8594" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="pq2" placeholder="Найти игрока по @юзернейму" autocapitalize="off" autocomplete="off" spellcheck="false" oninput="searchUsers(this.value)"></div>
+    <div id="pres"></div>
+  </div>
+  <div class="tg-sec" style="padding:12px 14px" id="p-acc"></div>
   <div class="tg-sec">
     <div class="tg-line" onclick="copyTxt(S.prof.bio)"><b id="p-bio"></b><small>О себе</small></div>
     <div class="tg-line" onclick="copyTxt('@'+S.prof.user)"><b class="blue" id="p-user"></b><small>Имя пользователя</small></div>
@@ -438,6 +450,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 </nav>
 </div>
 
+<div id="auth" class="overlay hidden"><div class="sheet"><div class="sbody" id="auth-body"></div></div></div>
 <div id="modal" class="overlay hidden" onclick="if(event.target===this)closeModal()"><div class="sheet" id="sheet"></div></div>
 
 <script>
@@ -511,7 +524,7 @@ function freshState(){return{
 const UI={tab:'market',col:'ALL',q:'',snipe:false,gem:false,sort:'PRICE_ASC',invF:'ALL',tier:'ALL',bd:'ALL',upId:null,upBusy:false,ptab:'gifts',
   render:(function(){try{return localStorage.getItem('pr_render')||'CDN'}catch(e){return'CDN'}})()};
 const TRK={t:0,c:0}; /* t — целевая позиция ползунка цены, c — текущая (плавно догоняет цель) */
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}cloudSoon()}
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
 function patchState(){
   const d=freshState();for(const k in d)if(S[k]===undefined)S[k]=d[k];
@@ -1142,7 +1155,7 @@ function renderProfile(){
   $('p-name').textContent=p.name;
   setHTML($('p-worn'),w?`<span class="estg" onclick="openGift(${w.id})" title="${w.col} #${w.serial}" style="background:${bg(w)}"><b>${ini(w.col)}</b>${imgTag(w)}</span>`:'');
   $('p-status').textContent=w?`${w.col} #${w.serial.toLocaleString()} · в сети`:'в сети';
-  $('p-user').textContent='@'+p.user;$('p-bio').textContent=p.bio||'—';$('p-phone').textContent=fakePhone(p.user);
+  $('p-user').textContent='@'+p.user;renderAcc();$('p-bio').textContent=p.bio||'—';$('p-phone').textContent=fakePhone(p.user);
   document.querySelectorAll('#p-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.k===UI.ptab));
   let h='';
   if(UI.ptab==='gifts'){
@@ -1159,7 +1172,10 @@ function renderProfile(){
       <div class="panel" style="margin:0"><div class="mut">Оборот</div><div class="big blue" style="font-size:20px">${f2(S.vol)}</div></div>
       <div class="panel" style="margin:0"><div class="mut">Потрачено</div><div class="big" style="font-size:20px">${f2(S.spent)}</div></div>
       <div class="panel" style="margin:0"><div class="mut">Статус комиссии</div><div style="font-weight:800;font-size:13px;margin-top:4px">${tierName()}</div></div></div>`;
+  }else if(UI.top&&UI.top.length){
+    loadTop();h=renderTopReal();
   }else{
+    loadTop();
     const all=[...BOTS.map(b=>({h:b[0],a:b[1],p:S.botProfit[b[0]]})),{h:'@'+p.user+' (вы)',a:(p.name||'?').trim()[0].toUpperCase(),p:S.profit,me:1}].sort((a,b)=>b.p-a.p);
     h=all.map((t,i)=>`<div class="panel row" style="padding:10px 14px;margin-bottom:6px;justify-content:space-between;${t.me?'border-color:var(--blue)':''}"><span><b class="mut" style="display:inline-block;width:24px">#${i+1}</b>${t.a} <b style="font-size:13px">${t.h}</b></span><b class="${t.p>=0?'green':'red'}" style="font-size:13px">${t.p>=0?'+':''}${f2(t.p)}</b></div>`).join('');
   }
@@ -1172,16 +1188,192 @@ function openProfileEdit(){
     <div class="mut" style="margin:8px 0 6px">Цвет аватара</div>
   <div class="row" style="margin-bottom:12px">${COLORS.map((c,i)=>`<button class="sw ${p.col===i?'on':''}" style="background:linear-gradient(135deg,${c[0]},${c[1]})" onclick="S.prof.col=${i};openProfileEdit()"></button>`).join('')}</div>
   <div class="mut" style="margin-bottom:6px">Имя</div><input id="e-name" class="input" maxlength="24" value="${p.name.replace(/"/g,'&quot;')}" style="margin-bottom:10px">
-  <div class="mut" style="margin-bottom:6px">Юзернейм</div><input id="e-user" class="input" maxlength="24" value="${p.user}" style="margin-bottom:10px">
+  <div class="mut" style="margin-bottom:6px">Юзернейм</div><input id="e-user" class="input" maxlength="24" value="${p.user}" ${ACC?'disabled':''} style="margin-bottom:10px">
   <div class="mut" style="margin-bottom:6px">О себе</div><input id="e-bio" class="input" maxlength="70" value="${p.bio.replace(/"/g,'&quot;')}" style="margin-bottom:14px">
   <button class="buy" onclick="saveProfile()">Сохранить</button></div>`;
   $('modal').classList.remove('hidden');
 }
 function saveProfile(){
   const esc=s=>s.replace(/[<>&"]/g,'');
-  S.prof.name=esc($('e-name').value.trim()||'Трейдер');S.prof.user=esc($('e-user').value.replace(/[^a-zA-Z0-9_]/g,'')||'trader');S.prof.bio=esc($('e-bio').value.trim());
+  S.prof.name=esc($('e-name').value.trim()||'Трейдер');S.prof.user=ACC||esc($('e-user').value.replace(/[^a-zA-Z0-9_]/g,'')||'trader');S.prof.bio=esc($('e-bio').value.trim());
   save();closeModal();refresh();toast('Профиль сохранён','ok');
 }
+
+/* =================== АККАУНТЫ / ОБЛАКО =================== */
+let TOKEN=(function(){try{return localStorage.getItem('pr_token')||''}catch(e){return''}})();
+let ACC=(function(){try{return localStorage.getItem('pr_acc')||''}catch(e){return''}})();
+let CLOUD_READY=false,SYNC=-1,LAST_SIG='',LAST_PUSH=0,_cloudT=0,_cloudBusy=false;
+const escH=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path,opt){
+  opt=opt||{};
+  const h={'content-type':'application/json'};if(TOKEN)h.authorization='Bearer '+TOKEN;
+  const r=await fetch('/api'+path,{method:opt.method||'GET',headers:h,body:opt.body?JSON.stringify(opt.body):undefined});
+  let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok){const e=new Error(j.error||'Ошибка сервера');e.status=r.status;throw e}
+  return j;
+}
+function validState(d){return d&&typeof d==='object'&&typeof d.ton==='number'&&Array.isArray(d.inv)&&Array.isArray(d.market)}
+function calcWorth(){return +(S.ton+S.inv.reduce((s,g)=>s+fair(g),0)).toFixed(2)}
+function slimState(){const o=Object.assign({},S);o.market=S.market.filter(g=>g.mine);o.feed=[];return o}
+function sigOf(){return [S.ton,S.profit,S.flips,S.worn,S.pinned.join(),JSON.stringify(S.prof),S.inv.map(g=>g.id+':'+g.serial+':'+(g.listed?g.price:0)).join()].join('|')}
+function refillMarket(){
+  const cnt={};S.market.forEach(g=>{if(!g.mine)cnt[g.col]=(cnt[g.col]||0)+1});
+  COL_NAMES.forEach(c=>{for(let i=cnt[c]||0,n=Math.max(1,Math.round(baseTarget(c)));i<n;i++){const g=mkGift({col:c});g.price=marketPrice(g);S.market.push(g)}});
+}
+function setSync(v){SYNC=v;if(UI.tab==='profile')renderAcc()}
+function cloudSoon(){
+  if(!TOKEN||!CLOUD_READY||_cloudT)return;
+  _cloudT=setTimeout(()=>{_cloudT=0;pushCloud()},6000);
+}
+async function pushCloud(force){
+  if(!TOKEN||!CLOUD_READY||_cloudBusy)return;
+  const sg=sigOf();
+  if(!force&&sg===LAST_SIG&&Date.now()-LAST_PUSH<120000)return;
+  _cloudBusy=true;
+  try{
+    await api('/save',{method:'PUT',body:{data:slimState(),worth:calcWorth()}});
+    LAST_SIG=sg;LAST_PUSH=Date.now();setSync(1);
+  }catch(e){
+    if(e.status===401)logoutLocal(true);
+    else if(e.status===409){toast('Сервер отклонил сохранение: '+e.message,'bad');CLOUD_READY=false;setTimeout(syncDown,300)}
+    else if(e.status===429){/* слишком часто — повторим позже */}
+    else setSync(0);
+  }
+  _cloudBusy=false;
+}
+function applyCloud(d){
+  S=d;patchState();if(ACC)S.prof.user=ACC;refillMarket();
+  LAST_SIG=sigOf();LAST_PUSH=Date.now();save();refresh();
+}
+async function syncDown(){
+  if(!TOKEN)return;
+  try{
+    const c=await api('/load');
+    if(c.data&&validState(c.data))applyCloud(c.data);
+    CLOUD_READY=true;
+    if(!(c.data&&validState(c.data)))pushCloud(true);else setSync(1);
+  }catch(e){if(e.status===401)logoutLocal(true);else setSync(0)}
+}
+function logoutLocal(expired){
+  TOKEN='';ACC='';CLOUD_READY=false;SYNC=-1;
+  try{localStorage.removeItem('pr_token');localStorage.removeItem('pr_acc');localStorage.removeItem('pr_guest')}catch(e){}
+  localStorage.removeItem(KEY);S=freshState();seedMarket();save();
+  closeModal();go('market');showAuth('login');
+  if(expired)toast('Сессия закончилась — войдите снова','bad');
+}
+async function logout(){
+  if(!confirm('Выйти из аккаунта? Прогресс сохранён в облаке, на этом устройстве начнётся пустая игра.'))return;
+  await pushCloud(true);
+  try{await api('/logout',{method:'POST'})}catch(e){}
+  logoutLocal(false);
+}
+function closeAuth(guest){
+  $('auth').classList.add('hidden');
+  if(guest){try{localStorage.setItem('pr_guest','1')}catch(e){}}
+}
+function showAuth(mode){
+  mode=mode||'login';UI.authMode=mode;const reg=mode==='register';
+  $('auth-body').innerHTML=`<div style="text-align:center;margin:6px 0 16px"><div style="font-size:22px;font-weight:900">Portals Market</div><div class="mut" style="margin-top:4px;line-height:1.45">${reg?'Создайте аккаунт, чтобы сохранять прогресс и показывать профиль друзьям':'Войдите, чтобы продолжить игру'}</div></div>
+  <div class="mut" style="margin-bottom:6px">Юзернейм</div>
+  <input id="a-user" class="input" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="латиница, цифры, _" style="margin-bottom:10px">
+  <div class="mut" style="margin-bottom:6px">Пароль</div>
+  <input id="a-pass" class="input" type="password" maxlength="100" autocomplete="${reg?'new-password':'current-password'}" placeholder="минимум 6 символов" style="margin-bottom:6px" onkeydown="if(event.key==='Enter')submitAuth()">
+  <div id="a-err" class="red" style="font-size:12px;min-height:18px;margin-bottom:8px"></div>
+  <button class="buy" id="a-btn" style="height:46px" onclick="submitAuth()">${reg?'Создать аккаунт':'Войти'}</button>
+  <button class="pill" style="width:100%;justify-content:center;margin-top:10px;height:40px" onclick="showAuth('${reg?'login':'register'}')">${reg?'Уже есть аккаунт? Войти':'Нет аккаунта? Регистрация'}</button>
+  <button class="pill" style="width:100%;justify-content:center;margin-top:8px;height:40px;opacity:.75" onclick="closeAuth(true)">Играть без аккаунта</button>`;
+  $('auth').classList.remove('hidden');
+}
+async function submitAuth(){
+  const u=$('a-user').value.trim(),p=$('a-pass').value,reg=UI.authMode==='register',er=$('a-err'),btn=$('a-btn');
+  er.textContent='';
+  if(!/^[A-Za-z0-9_]{3,20}$/.test(u)){er.textContent='Юзернейм: 3–20 символов, латиница, цифры и _';return}
+  if(p.length<6){er.textContent='Пароль: минимум 6 символов';return}
+  btn.disabled=true;btn.style.opacity=.6;
+  try{
+    const r=await api(reg?'/register':'/login',{method:'POST',body:{username:u,password:p}});
+    TOKEN=r.token;ACC=r.username;
+    try{localStorage.setItem('pr_token',TOKEN);localStorage.setItem('pr_acc',ACC);localStorage.removeItem('pr_guest')}catch(e){}
+    if(reg){S.prof.user=ACC;CLOUD_READY=true;await pushCloud(true)}
+    else{CLOUD_READY=false;await syncDown()}
+    closeAuth(false);go('market');
+    toast(reg?'Аккаунт создан: @'+ACC:'С возвращением, @'+ACC,'ok');
+  }catch(e){
+    er.textContent=e.message||'Ошибка';btn.disabled=false;btn.style.opacity=1;
+  }
+}
+function renderAcc(){
+  const el=$('p-acc');if(!el)return;
+  setHTML(el,TOKEN
+   ?`<div class="row" style="justify-content:space-between;gap:8px"><div><b style="font-size:14px">@${escH(ACC)}</b><div class="mut">${SYNC===1?'Прогресс сохранён в облаке':SYNC===0?'Нет связи с сервером, повторю позже':'Подключение…'}</div></div><button class="pill" onclick="logout()">Выйти</button></div>`
+   :`<div class="row" style="justify-content:space-between;gap:8px"><div><b style="font-size:14px">Вы играете без аккаунта</b><div class="mut">Прогресс только в этом браузере</div></div><button class="pill on" onclick="showAuth('login')">Войти</button></div>`);
+}
+
+/* ---- поиск игроков и чужие профили ---- */
+let _st=0;
+function searchUsers(v){
+  clearTimeout(_st);v=String(v).trim().replace(/^@/,'');const box=$('pres');
+  if(!v){box.innerHTML='';return}
+  if(!/^[A-Za-z0-9_]{1,20}$/.test(v)){box.innerHTML='<div class="mut" style="padding:8px 2px">Только латиница, цифры и _</div>';return}
+  _st=setTimeout(async()=>{
+    try{
+      const r=await api('/search?q='+encodeURIComponent(v));
+      box.innerHTML=r.users.length?r.users.map(u=>`<div class="urow" onclick="openUser('${u.username}')"><span class="row" style="gap:10px;min-width:0"><span class="uav">${escH(u.username[0].toUpperCase())}</span><span style="min-width:0"><b style="font-size:14px">@${u.username}</b><div class="mut" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(u.name)} · подарков: ${u.count}</div></span></span><span class="blue" style="font-size:18px">›</span></div>`).join(''):'<div class="mut" style="padding:8px 2px">Никого не найдено</div>';
+    }catch(e){box.innerHTML='<div class="mut" style="padding:8px 2px">Не удалось выполнить поиск</div>'}
+  },300);
+}
+function cleanGift(g){
+  if(!g||!COLS[g.col])return null;
+  const i=(v,a,b)=>Math.max(a,Math.min(b,Math.floor(Number(v))||0));
+  return{col:g.col,serial:i(g.serial,1,1000000),mi:i(g.mi,0,MODELS.length-1),bi:i(g.bi,0,BACKDROPS.length-1),pi:i(g.pi,0,PATTERNS.length-1)};
+}
+async function openUser(name){
+  sfx.click();
+  $('sheet').innerHTML='<div class="sbody"><div class="empty">Загрузка…</div></div>';$('modal').classList.remove('hidden');
+  try{renderUser(await api('/user/'+encodeURIComponent(name)))}
+  catch(e){$('sheet').innerHTML=`<div class="sbody"><div class="empty">${e.status===404?'Игрок не найден':'Ошибка загрузки'}</div><button class="buy ghost" onclick="closeModal()">Закрыть</button></div>`}
+}
+function renderUser(p){
+  const cl=COLORS[p.col]||COLORS[0],w=cleanGift(p.worn),gifts=(p.gifts||[]).map(cleanGift).filter(Boolean),st=p.stats||{};
+  const cover=w?coverBase(w):`linear-gradient(160deg,${cl[0]},${cl[1]})`;
+  if(w)buildCover(w,()=>{});
+  const f=n=>f2(+n||0),sg=n=>((+n||0)>=0?'+':'')+f(n);
+  const seen=p.seen?new Date(p.seen).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'ещё не играл';
+  $('sheet').innerHTML=`<div class="sbody">
+   <div class="tg-cover" style="background:${cover};margin:0 0 12px"><button class="x" onclick="closeModal()">✕</button>
+    <div class="tg-av" style="background:linear-gradient(135deg,${cl[0]},${cl[1]})">${escH((p.name||'?').trim()[0]||'?').toUpperCase()}</div>
+    <div class="tg-name"><span>${escH(p.name)}</span>${w?`<span class="estg" style="background:${bg(w)}"><b>${ini(w.col)}</b>${imgTag(w)}</span>`:''}</div>
+    <div class="tg-status">@${escH(p.username)} · был(а) ${escH(seen)}</div></div>
+   ${p.bio?`<div class="panel" style="padding:11px 14px">${escH(p.bio)}</div>`:''}
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+    <div class="panel" style="margin:0"><div class="mut">Капитал</div><div class="big blue" style="font-size:20px">${f(p.worth)}</div></div>
+    <div class="panel" style="margin:0"><div class="mut">Чистая прибыль</div><div class="big ${(+st.profit||0)>=0?'green':'red'}" style="font-size:20px">${sg(st.profit)}</div></div>
+    <div class="panel" style="margin:0"><div class="mut">Сделок продажи</div><div class="big" style="font-size:20px">${+st.flips||0}</div></div>
+    <div class="panel" style="margin:0"><div class="mut">Лучший флип</div><div class="big amber" style="font-size:20px">+${f(st.best)}</div></div></div>
+   <div class="row" style="justify-content:space-between;margin-bottom:10px"><b>Подарки: ${+p.count||0}</b></div>
+   ${gifts.length?`<div class="grid3">${gifts.map(g=>`<div class="art mini" style="background:${bg(g)};border-radius:18px">${artInner(g)}<span class="badge" style="top:auto;bottom:6px;left:6px;font-size:9px">#${nf(g.serial)}</span></div>`).join('')}</div>`:'<div class="empty">Пока нет коллекционных подарков</div>'}
+   <button class="buy ghost" style="margin-top:14px" onclick="closeModal()">Закрыть</button></div>`;
+}
+
+/* ---- реальный топ игроков ---- */
+let _topAt=0,_topBusy=false;
+async function loadTop(){
+  if(_topBusy||Date.now()-_topAt<30000)return;
+  _topBusy=true;
+  try{const r=await api('/top');UI.top=r.users;_topAt=Date.now();if(UI.tab==='profile'&&UI.ptab==='top')renderProfile()}catch(e){}
+  _topBusy=false;
+}
+function renderTopReal(){
+  return UI.top.map((t,i)=>`<div class="urow" style="${t.username===ACC?'border-color:var(--blue)':''}" onclick="openUser('${t.username}')"><span><b class="mut" style="display:inline-block;width:28px">#${i+1}</b><b style="font-size:13px">@${t.username}</b><span class="mut"> · ${escH(t.name)}</span></span><b class="${t.profit>=0?'green':'red'}" style="font-size:13px">${t.profit>=0?'+':''}${f2(t.profit)}</b></div>`).join('')
+   +'<p class="mut" style="text-align:center;margin-top:10px">Рейтинг по чистой прибыли. Нажмите на игрока, чтобы открыть профиль.</p>';
+}
+
+async function initAuth(){
+  if(!TOKEN){let g=0;try{g=localStorage.getItem('pr_guest')}catch(e){}if(!g)showAuth('login');return}
+  syncDown();
+}
+setInterval(()=>{if(TOKEN&&!CLOUD_READY)syncDown()},10000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pushCloud()});
 
 /* =================== НАВИГАЦИЯ / ОБНОВЛЕНИЕ =================== */
 function go(t){
@@ -1243,6 +1435,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 $('snd').textContent=snd?'Звук':'Тихо';
 setInterval(tick,3000);
+initAuth();
 setInterval(()=>{online=clamp(online+Math.round(rnd(-14,16)),900,2400);$('online').textContent=online.toLocaleString('ru-RU')},2500);
 </script>
 </body>
