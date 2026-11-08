@@ -221,7 +221,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Номер выпадает случайно — а от номера зависят модель, фон, узор и цена. Редкие номера (#7, #777, #1000…) стоят дороже. Результат может стоить меньше вложенного.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Номер выпадает случайно — а от номера зависят модель, фон, узор и цена. Редкие номера (#7, #777, #1111…) стоят в разы дороже, а если цвет подарка сочетается с фоном — это ещё плюс к цене. Результат может стоить меньше вложенного.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -445,10 +445,29 @@ function mkGift(o={}){
   const col=o.col||pick(COL_NAMES),serial=o.serial||genSerial(COLS[col].supply,2.5),t=traits(col,serial);
   return{id:S.nextId++,col,serial,mi:t.mi,bi:t.bi,pi:t.pi,price:o.price||0,bought:o.bought||0,listed:!!o.listed,mine:!!o.mine,seller:o.seller||pick(BOTS)[0],at:Date.now(),nw:1,fl:0};
 }
+/* ---- сочетание цвета подарка с фоном и комбо редкостей ---- */
+const COL_HUE={'Plush Pepe':125,"Durov's Cap":215,'Precious Peach':18,'Swiss Watch':45,'Astral Shard':275,'Signet Ring':45,'Mini Oscar':45,'Loot Bag':40,'Perfume Bottle':195,'Vintage Cigar':25,'Diamond Ring':190,'Toy Bear':28,'Eternal Rose':350,'Homemade Cake':330,'Lol Pop':320,'Swag Bag':290};
+const MODEL_SHIFT=[0,22,-22,45,-45,75,-75,150];
+function hexHSL(x){const r=parseInt(x.slice(1,3),16)/255,g=parseInt(x.slice(3,5),16)/255,b=parseInt(x.slice(5,7),16)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,l=(mx+mn)/2;let h=0;if(d){h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h=(h*60+360)%360}return{h,s:d?d/(1-Math.abs(2*l-1)):0}}
+const BD_HSL=BACKDROPS.map(b=>hexHSL(b[1]));
+function giftHue(g){return(COL_HUE[g.col]+MODEL_SHIFT[g.mi]+360)%360}
+function matchInfo(g){
+  if(g.base)return{m:1,tags:[]};
+  const tags=[];let m=1;const b=BD_HSL[g.bi];
+  if(b.s>=.2){
+    let d=Math.abs(giftHue(g)-b.h);d=Math.min(d,360-d);
+    if(d<=12){m=1.7;tags.push('Идеальное совпадение цвета')}
+    else if(d<=25){m=1.35;tags.push('Гармония с фоном')}
+    else if(Math.abs(d-180)<=14){m=1.2;tags.push('Контраст с фоном')}
+  }
+  let c=0;if(MODELS[g.mi][1]<=4)c++;if(BACKDROPS[g.bi][3]<=5)c++;if(PATTERNS[g.pi][2]<=8)c++;
+  if(c===2){m*=1.2;tags.push('Двойная редкость')}else if(c===3){m*=1.5;tags.push('Тройная редкость')}
+  return{m:+m.toFixed(2),tags};
+}
 function fair(g,noSerial){
   if(g.base)return +(S.floors[g.col]*BASE_BUY).toFixed(2);
   const mp=premium(MODELS[g.mi][1]*30/SUMS.m*3.3), bp=premium(BACKDROPS[g.bi][3]*30/SUMS.b*19), pp=premium(PATTERNS[g.pi][2]*30/SUMS.p*9);
-  const sr=noSerial?1:serialInfo(g.serial).m;
+  const sr=(noSerial?1:serialInfo(g.serial).m)*matchInfo(g).m;
   return +(S.floors[g.col]*mp*Math.pow(bp,.8)*Math.pow(pp,.5)*sr).toFixed(2);
 }
 const pct=(w,sum)=>(w/sum*100).toFixed(w/sum*100<1?2:1)+'%';
@@ -468,23 +487,34 @@ function patternGrid(emoji,n=12){
   return '<div class="pat">'+pts.slice(0,n).map((p,i)=>`<span style="left:${p[0]}%;top:${p[1]}%;font-size:${i%2?13:17}px">${emoji}</span>`).join('')+'</div>';
 }
 function bg(g){const b=BACKDROPS[g.bi];return `radial-gradient(circle at 50% 40%,${b[1]} 0%,${b[2]} 100%)`}
-const IMG_OK=new Set();let IMG_ERR=0,VIA=0;
+const IMG_OK=new Set(),IMG_URL={},IMG_PEND=new Set();let IMG_ERR=0;
 /* цепочка источников: напрямую -> через прокси (если ваша сеть блокирует Fragment) -> другой номер -> эмодзи */
 function imgCands(s,o){
-  const fb=((o-1)%300)+1,d=n=>`https://nft.fragment.com/gift/${s}-${n}.medium.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(d(n))}`;
+  const fb=((o-1)%300)+1,d=n=>`https://nft.fragment.com/gift/${s}-${n}.medium.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(d(n))}&w=360&q=78`;
   return fb===o?[d(o),px(o)]:[d(o),px(o),d(fb),px(fb)];
 }
 function imgTag(g){
   if(UI.render!=='CDN'||g.base||!g.serial)return'';
-  const s=COLS[g.col].slug,c=imgCands(s,g.serial),i=VIA?1:0,u=c[i];
-  return `<img ${IMG_OK.has(u)?'class="ld"':'loading="lazy"'} referrerpolicy="no-referrer" data-s="${s}" data-o="${g.serial}" data-i="${i}" src="${u}" alt="" onload="imgOk(this)" onerror="imgErr(this)">`;
+  const s=COLS[g.col].slug,k=s+'-'+g.serial,u=IMG_URL[k];
+  if(u)return `<img class="ld" referrerpolicy="no-referrer" decoding="async" data-k="${k}" src="${u}" alt="">`;
+  preloadImg(s,g.serial);
+  return `<img referrerpolicy="no-referrer" decoding="async" data-k="${k}" alt="">`;
 }
-function imgOk(el){IMG_OK.add(el.src);IMG_ERR=0;if(+el.dataset.i%2===1)VIA=1;el.classList.add('ld')}
-function imgErr(el){
-  const c=imgCands(el.dataset.s,+el.dataset.o),i=+el.dataset.i+1;
-  if(i<c.length){el.dataset.i=i;el.src=c[i];return}
-  el.remove();IMG_ERR++;
-  if(IMG_ERR===10&&!IMG_OK.size)toast('⚠️ Картинки Fragment недоступны ни напрямую, ни через прокси. Проверьте, открывается ли nft.fragment.com в вашем браузере (возможно, нужен VPN).','bad');
+/* гонка: прямой адрес и прокси грузятся одновременно, побеждает быстрейший */
+function raceImg(urls,cb){
+  let done=false,fails=0;
+  urls.forEach(u=>{const im=new Image();im.referrerPolicy='no-referrer';
+    im.onload=()=>{if(!done){done=true;cb(u)}};
+    im.onerror=()=>{if(++fails===urls.length&&!done){done=true;cb(null)}};
+    im.src=u});
+}
+function preloadImg(s,o){
+  const k=s+'-'+o;if(IMG_URL[k]||IMG_PEND.has(k))return;IMG_PEND.add(k);
+  const c=imgCands(s,o),p1=c.slice(0,2),p2=c.slice(2);
+  const ok=u=>{IMG_URL[k]=u;IMG_OK.add(u);IMG_ERR=0;IMG_PEND.delete(k);
+    document.querySelectorAll(`img[data-k="${k}"]`).forEach(e=>{if(!e.getAttribute('src')){e.src=u;e.classList.add('ld')}})};
+  const fail=()=>{IMG_PEND.delete(k);if(++IMG_ERR===10&&!IMG_OK.size)toast('⚠️ Картинки Fragment недоступны ни напрямую, ни через прокси. Проверьте, открывается ли nft.fragment.com в вашем браузере (возможно, нужен VPN).','bad')};
+  raceImg(p1,u=>{if(u)ok(u);else if(p2.length)raceImg(p2,v=>v?ok(v):fail());else fail()});
 }
 function artInner(g){return patternGrid(PATTERNS[g.pi][1])+`<div class="emo">${COLS[g.col].emoji}</div>`+imgTag(g)}
 function tierOf(g){const m=MODELS[g.mi][1];return m<=4?'legendary':m<=12?'epic':m<=20?'rare':'common'}
@@ -625,13 +655,14 @@ function giftCard(g,mode){
   if(g.base)return `<div class="card mine"><div class="art" style="background:radial-gradient(circle,#4b6a82,#2a3e4f)" onclick="openGift(${g.id})"><div class="emo">${COLS[g.col].emoji}</div><span class="badge">Обычный</span></div><div class="ctitle">${g.col}</div><div class="csub"><span>не улучшен</span><span>≈ ${f2(fair(g))} TON</span></div><button class="buy" style="background:linear-gradient(90deg,#ffb73d,#ff7a3d);color:#2a1200;box-shadow:none" onclick="openGift(${g.id})">⭐ Улучшить</button></div>`;
   const f=fair(g),disc=Math.round((f-g.price)/f*100),si=serialInfo(g.serial),leg=tierOf(g)==='legendary';
   const badge=g.mine&&g.listed?'<span class="badge r g">ЛОТ</span>':(!g.mine&&disc>=10)?`<span class="badge r g">−${disc}%</span>`:leg?`<span class="badge r a">${modelPct(g)}</span>`:'';
+  const mt=matchInfo(g),mb=mt.m>=1.35?`<span class="badge r" style="top:auto;bottom:8px">🎨 ×${mt.m}</span>`:'';
   const sb=si.m>=1.5?`<span class="badge b">💎 ${si.tags[0]||'Редкий #'}</span>`:'';
   const cls=(g.mine?'mine ':'')+(leg?'leg ':'')+(g.nw?'new ':'')+(g.fl===-1?'pd':g.fl===1?'pu':'');
   let btn;
   if(mode==='inv'){btn=g.listed?`<button class="buy green" onclick="openGift(${g.id})">${f2(g.price)} ${TON_SVG} · изм.</button>`:`<button class="buy" onclick="openGift(${g.id})">Продать</button>`}
   else btn=`<button class="buy" onclick="openGift(${g.id})">${g.fl===-1?'▼ ':g.fl===1?'▲ ':''}${f2(g.price)} ${TON_SVG}</button>`;
   return `<div class="card ${cls}">
-    <div class="art" style="background:${bg(g)}" onclick="openGift(${g.id})">${artInner(g)}${UI.render==='CDN'?'':`<span class="badge">${BACKDROPS[g.bi][0]}</span>`}${badge}${sb}</div>
+    <div class="art" style="background:${bg(g)}" onclick="openGift(${g.id})">${artInner(g)}${UI.render==='CDN'?'':`<span class="badge">${BACKDROPS[g.bi][0]}</span>`}${badge}${sb}${mb}</div>
     <div class="ctitle">${g.col}</div>
     <div class="csub"><span>#${g.serial.toLocaleString()}</span><span>${mode==='inv'?'≈ '+f2(f)+' TON':'Модель '+MODELS[g.mi][0]}</span></div>${btn}</div>`;
 }
@@ -663,7 +694,7 @@ function openGift(id,just,keep){
   if(!keep)sfx.click();
   const g=S.inv.find(x=>x.id===id)||S.market.find(x=>x.id===id);if(!g)return;
   if(g.base){UI.upId=g.id;go('up');return}
-  const f=fair(g),C=COLS[g.col],worn=S.worn===g.id,pin=S.pinned.includes(g.id),si=serialInfo(g.serial);
+  const f=fair(g),C=COLS[g.col],worn=S.worn===g.id,pin=S.pinned.includes(g.id),si=serialInfo(g.serial),mt=matchInfo(g);
   UI.openId=g.id;const R=g.real||{};
   let action;
   if(g.mine){
@@ -706,6 +737,8 @@ function openGift(id,just,keep){
     <div class="tr"><span class="k">Узор</span><span><b>${R.symbol?R.symbol.v:PATTERNS[g.pi][0]}</b><span class="tag t-purple">${R.symbol?R.symbol.p:patPct(g)}</span></span></div>
     <div class="tr"><span class="k">Номер</span><span><b>#${g.serial.toLocaleString()}</b><span class="tag ${si.m>1.005?'t-green':'t-blue'}">${si.m>1.005?'×'+si.m+' к цене':'без наценки'}</span></span></div>
     ${si.tags.length?`<div class="tr"><span class="k">Особенность номера</span><b class="amber">💎 ${si.tags.join(' · ')}</b></div>`:''}
+    <div class="tr"><span class="k">Оттенок модели и фона</span><span style="display:flex;align-items:center;gap:6px"><i style="width:14px;height:14px;border-radius:50%;background:hsl(${Math.round(giftHue(g))},70%,55%)"></i><i style="width:14px;height:14px;border-radius:50%;background:${BACKDROPS[g.bi][1]}"></i></span></div>
+    ${mt.tags.length?`<div class="tr"><span class="k">Сочетание</span><b class="amber" style="text-align:right">🎨 ${mt.tags.join(' · ')} · ×${mt.m}</b></div>`:''}
     <div class="tr"><span class="k">Выпущено</span><b>${C.supply.toLocaleString()} (прибл.)</b></div>
   </div>${action}`;
   $('modal').classList.remove('hidden');
