@@ -1843,11 +1843,14 @@ function renderTopReal(){
 /* ---- выдачи от администратора (деньги и подарки НЕ попадают в прибыль) ---- */
 function bannedOut(m){logoutLocal(false);toast(escH(m||'Аккаунт заблокирован'),'bad')}
 function applyGrants(list){
-  S.ackq=S.ackq||[];let ton=0,gifts=0;const recv=[];
+  S.ackq=S.ackq||[];let ton=0,gifts=0,rst=0;const recv=[];
   for(const gr of list){
     if(!gr||!Number.isInteger(gr.id)||S.ackq.includes(gr.id))continue;
     S.ackq.push(gr.id);
-    if(gr.kind==='ton'){
+    if(gr.kind==='reset-stats'){
+      S.profit=0;S.flips=0;S.best=0;S.vol=0;S.spent=0;rst++;
+      log('Статистика сброшена администратором','0.00','rose');
+    }else if(gr.kind==='ton'){
       const a=Number(gr.amount);if(!Number.isFinite(a)||!a)continue;
       S.ton=+Math.max(0,S.ton+a).toFixed(2);ton+=a;
       log('От администратора',(a>=0?'+':'')+f2(a),a>=0?'emerald':'rose');
@@ -1862,7 +1865,8 @@ function applyGrants(list){
       else{gifts++;log('Подарок от админа: '+gr.col+(sn?' #'+sn:''),'подарок','emerald')}
     }
   }
-  if(!ton&&!gifts&&!recv.length){save();return}
+  if(rst)toast('Администратор сбросил вашу статистику','bad');
+  if(!ton&&!gifts&&!recv.length){save();refresh();pushCloud(true);return}
   sfx.sale();confetti(80);
   recv.forEach(m=>toast(' '+escH(m),'ok'));
   if(ton||gifts)toast('Вам выдали от администратора'+(ton?': '+(ton>=0?'+':'')+f2(ton)+' TON':'')+(gifts?(ton?' и ':': ')+gifts+' подарк.':''),'ok');
@@ -1907,6 +1911,8 @@ function adOpen(name){
   <div class="panel"><b>Выдать подарок</b><div class="mut" style="margin:4px 0 8px">Пустой номер — обычный подарок (его можно улучшить). Продажа выданного подарка не идёт в прибыль.</div>
    <select id="ad-col" class="input" style="margin-bottom:8px;font-size:14px">${opts}</select>
    <div class="row"><input id="ad-sn" class="input" type="number" min="0" max="1000000" placeholder="Номер (например 777)" style="flex:1"><button class="buy" style="width:auto;padding:0 18px" onclick="adGiveGift()">Выдать</button></div></div>
+  <div class="panel"><b>Сбросить статистику</b><div class="mut" style="margin:4px 0 8px">Обнулит прибыль, сделки, лучший флип, оборот и потрачено (уровень VIP тоже). Баланс и подарки не трогает.</div>
+   <button class="buy red" onclick="adResetStats()">Очистить статистику</button></div>
   ${name===ACC?'':`<div class="panel"><b>${u.banned?'Разблокировать':'Заблокировать'}</b>
    ${u.banned?'':'<input id="ad-why" class="input" maxlength="100" placeholder="Причина (необязательно)" style="margin:8px 0">'}
    <button class="buy ${u.banned?'green':'red'}" style="margin-top:${u.banned?8:0}px" onclick="adBan(${u.banned?'false':'true'})">${u.banned?'Снять бан':'Забанить'}</button></div>`}
@@ -1925,6 +1931,14 @@ async function adGiveGift(){
   const n=UI.adCur,col=$('ad-col').value,raw=$('ad-sn').value.trim(),sn=raw===''?0:parseInt(raw,10);
   if(!(sn>=0&&sn<=1000000)){toast('Номер: от 1 до 1 000 000, или пусто','bad');return}
   if(await adCall('/admin/give-gift',{user:n,col,serial:sn},`@${n}: ${col}${sn?' #'+sn:' (обычный)'} отправлен`)){$('ad-sn').value='';if(n===ACC)pullGrants()}
+}
+async function adResetStats(){
+  const n=UI.adCur;
+  if(!confirm(`Очистить всю статистику игрока @${n}?`))return;
+  if(await adCall('/admin/reset-stats',{user:n},`Статистика @${n} очищена`)){
+    const u=UI.adUsers[n];if(u)u.profit=0;
+    if(n===ACC)pullGrants();
+  }
 }
 async function adBan(ban){
   const n=UI.adCur,w=$('ad-why');

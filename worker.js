@@ -186,6 +186,13 @@ async function save(req, env, user) {
   /* ЗАЩИТА ОТ НАКРУТКИ ОТКЛЮЧЕНА: рост баланса, прибыли и оборота больше не ограничивается.
      Остались только базовые проверки выше (баланс от 0 до 1 000 000 TON). */
 
+  /* если админ сбросил статистику, а клиент ещё не подтвердил это (не применил выдачу) —
+     старые цифры из его сохранения не принимаем, иначе они вернутся обратно */
+  {
+    const rs = await env.DB.prepare("SELECT id FROM grants WHERE user_id = ? AND applied = 0 AND kind = 'reset-stats'").bind(user.id).all();
+    if ((rs.results || []).some(r => !ack.includes(r.id))) { d.profit = 0; d.flips = 0; d.best = 0; d.vol = 0; d.spent = 0; }
+  }
+
   const profile = JSON.stringify(buildProfile(d, b.worth));
   const stmts = [env.DB.prepare(
     'INSERT INTO saves (user_id, data, profile, updated) VALUES (?, ?, ?, ?) ' +
@@ -286,6 +293,24 @@ async function adminRoute(req, env, url, path, m, u) {
       await adminLog(env, u.username, 'unban', t.username, '');
     }
     return json({ ok: true, banned: !!b.ban });
+  }
+
+  if (path === '/api/admin/reset-stats') {
+    /* обнуляем статистику сразу в сохранении и профиле, а игроку отправляем команду,
+       чтобы его устройство тоже обнулилось и не перезаписало сервер старыми цифрами */
+    const row = await env.DB.prepare('SELECT data, profile FROM saves WHERE user_id = ?').bind(t.id).first();
+    const stmts = [env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
+      .bind(t.id, 'reset-stats', '{}', Date.now())];
+    const d = row && parse(row.data);
+    if (d && typeof d === 'object') {
+      d.profit = 0; d.flips = 0; d.best = 0; d.vol = 0; d.spent = 0;
+      const worth = (parse(row.profile) || {}).worth || 0;
+      stmts.push(env.DB.prepare('UPDATE saves SET data = ?, profile = ? WHERE user_id = ?')
+        .bind(JSON.stringify(d), JSON.stringify(buildProfile(d, worth)), t.id));
+    }
+    await env.DB.batch(stmts);
+    await adminLog(env, u.username, 'reset-stats', t.username, '');
+    return json({ ok: true });
   }
 
   if (path === '/api/admin/give-ton') {
