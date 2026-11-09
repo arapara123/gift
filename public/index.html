@@ -1006,9 +1006,9 @@ function buy(id){
 }
 function listGift(id){
   const g=S.inv.find(x=>x.id===id),v=parseFloat($('sell-price').value);
-  if(!g||!(v>=0.5)){toast('Введите цену от 0.5 TON','bad');return}
+  if(!g||!(v>=0)){toast('Введите цену от 0 TON','bad');return}
   g.price=+v.toFixed(2);g.listed=true;if(!S.market.find(x=>x.id===id))S.market.unshift(g);
-  sfx.click();closeModal();toast(` ${g.col} #${g.serial} выставлен за ${f2(g.price)} TON`,'ok');refresh();
+  sfx.click();closeModal();toast(g.price===0?` ${g.col} #${g.serial} выставлен бесплатно`:` ${g.col} #${g.serial} выставлен за ${f2(g.price)} TON`,'ok');refresh();
 }
 function unlist(id){
   const g=S.inv.find(x=>x.id===id);if(!g)return;g.listed=false;S.market=S.market.filter(x=>x.id!==id);
@@ -1207,9 +1207,10 @@ function openGift(id,just,keep){
     </div>
     <div class="panel">
       <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="mut">Куплен: <b style="color:#fff">${f2(g.bought)}</b></span><span class="mut">Оценка: <b class="green">${f2(f)}</b></span></div>
-      <input id="sell-price" class="input" type="number" step="0.1" min="0.5" value="${d}" oninput="calcSell(${g.id})">
-      <input type="range" id="sell-rng" min="${(f*.7).toFixed(2)}" max="${(f*1.5).toFixed(2)}" step="any" value="${d}" style="margin:14px 0 4px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id})">
-      <div class="row" style="justify-content:space-between"><span class="mut">−30%</span><span class="mut">оценка</span><span class="mut">+50%</span></div>
+      <input id="sell-price" class="input" type="number" step="0.1" min="0" value="${d}" oninput="calcSell(${g.id})">
+      <input type="range" id="sell-rng" min="0" max="${(f*1.5).toFixed(2)}" step="any" value="${d}" style="margin:14px 0 4px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id})">
+      <div class="row" style="justify-content:space-between"><span class="mut">0</span><span class="mut">оценка</span><span class="mut">+50%</span></div>
+      <button class="pill" style="width:100%;justify-content:center;margin-top:10px;height:38px" onclick="$('sell-price').value=0;calcSell(${g.id})">Отдать бесплатно · 0 TON</button>
       <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px;font-size:13px">
         <div class="row" style="justify-content:space-between"><span class="mut">Комиссия ${(feeRate()*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
         <div class="row" style="justify-content:space-between;margin-top:4px"><span class="mut">Вы получите</span><b id="sp-net"></b></div>
@@ -1220,7 +1221,8 @@ function openGift(id,just,keep){
     <div class="row" style="gap:8px">
       ${g.listed?`<button class="buy red" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="buy ghost" style="flex:1" onclick="instantSell(${g.id})">Скупка ${f2(f*.9*(1-feeRate()))}</button>`}
       <button class="buy" style="flex:1.4" onclick="listGift(${g.id})">${g.listed?'Обновить цену':'Выставить'}</button>
-    </div>`;
+    </div>
+    <button class="buy ghost" style="margin-top:8px" onclick="openTransfer(${g.id})">Передать другу</button>`;
   }else if(g.foreign){
     action=`<div class="panel row" style="justify-content:space-between"><div><div class="mut">Оценка</div><div class="big">${f2(f)} ${TON_SVG}</div></div><div class="mut" style="text-align:right">Владелец<br><b style="color:#fff">${g.seller}</b></div></div><button class="buy ghost" onclick="openUser('${g.owner}')">← К профилю</button>`;
   }else{
@@ -1268,6 +1270,41 @@ async function loadReal(g){
     (j.attributes||[]).forEach(a=>{const m=/^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$/.exec(String(a.value));o[String(a.trait_type||'').toLowerCase()]={v:m?m[1]:String(a.value),p:m?m[2]+'%':''}});
     if(o.model||o.backdrop||o.symbol){g.real=o;if(!$('modal').classList.contains('hidden')&&UI.openId===g.id)openGift(g.id,false,true)}
   }catch(e){if(e instanceof TypeError)window._noJson=1}
+}
+function openTransfer(id){
+  const g=S.inv.find(x=>x.id===id&&!x.base);if(!g)return;
+  if(!TOKEN){toast('Чтобы передавать подарки, войдите в аккаунт','bad');return}
+  UI.xfer=id;sfx.click();
+  const fr=S.friends||[];
+  $('sheet').innerHTML=`<div class="sbody"><div class="row" style="justify-content:space-between;margin-bottom:12px"><b style="font-size:18px">Передать подарок</b><button class="x" style="position:static" onclick="openGift(${id},false,true)">✕</button></div>
+  <div class="panel"><b>${escH(g.col)} #${nf(g.serial)}</b><div class="mut" style="margin-top:4px;line-height:1.45">Подарок пропадёт у вас и появится у игрока (как только он зайдёт в игру). Вернуть его можно, только если игрок передаст его обратно.</div></div>
+  <div class="mut" style="margin:0 0 6px">Юзернейм игрока</div>
+  <input id="x-user" class="input" maxlength="20" placeholder="@юзернейм" autocapitalize="off" autocomplete="off" spellcheck="false" style="margin-bottom:10px">
+  <button class="buy" onclick="sendGift($('x-user').value)">Передать</button>
+  ${fr.length?`<div class="sec-t" style="margin-top:16px">Ваши друзья</div>`+fr.map(f=>`<div class="urow" onclick="sendGift('${escH(f.u)}')"><span class="row" style="gap:10px;min-width:0"><span class="uav">${escH(f.u[0].toUpperCase())}</span><b style="font-size:14px">@${escH(f.u)}</b></span><span class="blue" style="font-size:18px">›</span></div>`).join(''):'<p class="mut" style="margin-top:14px;text-align:center">Добавьте друзей во вкладке «Профиль» через поиск по @юзернейму — они появятся здесь.</p>'}</div>`;
+  $('modal').classList.remove('hidden');
+}
+async function sendGift(name){
+  const g=S.inv.find(x=>x.id===UI.xfer&&!x.base);if(!g||UI.xferBusy)return;
+  name=String(name||'').trim().replace(/^@/,'');
+  if(!/^[A-Za-z0-9_]{3,20}$/.test(name)){toast('Введите юзернейм игрока','bad');return}
+  if(name===ACC){toast('Нельзя передать подарок самому себе','bad');return}
+  if(!confirm(`Передать ${g.col} #${g.serial} игроку @${name}?`))return;
+  UI.xferBusy=true;
+  try{
+    if(CLOUD_READY)await pushCloud(true);
+    await api('/transfer',{method:'POST',body:{user:name,col:g.col,serial:g.serial}});
+  }catch(e){
+    UI.xferBusy=false;
+    if(e.status===401){logoutLocal(true);return}
+    toast(escH(e.message||'Ошибка'),'bad');return;
+  }
+  S.inv=S.inv.filter(x=>x.id!==g.id);S.market=S.market.filter(x=>x.id!==g.id);S.offers=S.offers.filter(o=>o.gid!==g.id);
+  S.pinned=S.pinned.filter(x=>x!==g.id);if(S.worn===g.id)S.worn=null;
+  log(`Передан ${g.col} #${g.serial} → @${name}`,'подарок','rose');
+  UI.xferBusy=false;sfx.sale();vib([20,40,20]);closeModal();
+  toast(` ${g.col} #${g.serial} передан игроку @${name}`,'ok');
+  save();refresh();pushCloud(true);
 }
 function calcSell(id){
   const g=S.inv.find(x=>x.id===id);if(!g||!$('sell-price'))return;
@@ -1727,7 +1764,7 @@ function renderTopReal(){
 /* ---- выдачи от администратора (деньги и подарки НЕ попадают в прибыль) ---- */
 function bannedOut(m){logoutLocal(false);toast(escH(m||'Аккаунт заблокирован'),'bad')}
 function applyGrants(list){
-  S.ackq=S.ackq||[];let ton=0,gifts=0;
+  S.ackq=S.ackq||[];let ton=0,gifts=0;const recv=[];
   for(const gr of list){
     if(!gr||!Number.isInteger(gr.id)||S.ackq.includes(gr.id))continue;
     S.ackq.push(gr.id);
@@ -1740,13 +1777,16 @@ function applyGrants(list){
       const sn=Math.max(0,Math.min(1000000,Math.floor(Number(gr.serial))||0));let g;
       if(sn<=0)g={id:S.nextId++,col:gr.col,serial:0,mi:0,bi:0,pi:0,price:0,bought:baseCost(gr.col),listed:false,mine:true,base:true,seller:'me',at:Date.now(),gr:1};
       else{g=mkGift({col:gr.col,serial:sn,mine:true,seller:'me'});g.nw=0;g.gr=1;g.bought=fair(g)}
-      S.inv.unshift(g);gifts++;
-      log('Подарок от админа: '+gr.col+(sn?' #'+sn:''),'подарок','emerald');
+      S.inv.unshift(g);
+      const who=gr.from?String(gr.from).replace(/[^A-Za-z0-9_]/g,''):'';
+      if(who){recv.push('@'+who+' передал(а) вам '+gr.col+(sn?' #'+sn:''));log('Подарок от @'+who+': '+gr.col+(sn?' #'+sn:''),'подарок','emerald')}
+      else{gifts++;log('Подарок от админа: '+gr.col+(sn?' #'+sn:''),'подарок','emerald')}
     }
   }
-  if(!ton&&!gifts){save();return}
+  if(!ton&&!gifts&&!recv.length){save();return}
   sfx.sale();confetti(80);
-  toast('Вам выдали от администратора'+(ton?': '+(ton>=0?'+':'')+f2(ton)+' TON':'')+(gifts?(ton?' и ':': ')+gifts+' подарк.':''),'ok');
+  recv.forEach(m=>toast(' '+escH(m),'ok'));
+  if(ton||gifts)toast('Вам выдали от администратора'+(ton?': '+(ton>=0?'+':'')+f2(ton)+' TON':'')+(gifts?(ton?' и ':': ')+gifts+' подарк.':''),'ok');
   save();refresh();pushCloud(true);
 }
 async function pullGrants(){

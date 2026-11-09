@@ -196,6 +196,37 @@ async function save(req, env, user) {
   return json({ ok: true, t: now });
 }
 
+/* передача подарка другому игроку: подарок должен реально лежать в сохранении отправителя;
+   сервер сам убирает его оттуда и создаёт выдачу получателю (применяется при его следующем входе) */
+async function transfer(req, env, u) {
+  let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
+  const t = await findUser(env, b.user);
+  if (!t) return err('Игрок не найден', 404);
+  if (t.id === u.id) return err('Нельзя передать подарок самому себе');
+  if (await env.DB.prepare('SELECT 1 AS x FROM bans WHERE user_id = ?').bind(t.id).first()) return err('Этот игрок заблокирован');
+  const col = String(b.col || '');
+  if (!COL_RE.test(col)) return err('Неверная коллекция');
+  const serial = int(b.serial, 1, 1000000);
+  if (await limited(env.DB, 'xfer:' + u.id, 40, 3600000)) return err('Слишком много передач. Попробуйте позже', 429);
+  const row = await env.DB.prepare('SELECT data, profile FROM saves WHERE user_id = ?').bind(u.id).first();
+  const d = row && parse(row.data);
+  const i = d && Array.isArray(d.inv) ? d.inv.findIndex(g => g && !g.base && g.col === col && Number(g.serial) === serial) : -1;
+  if (i < 0) return err('Подарок не найден в сохранении. Подождите пару секунд и повторите');
+  const gid = d.inv[i].id;
+  d.inv.splice(i, 1);
+  d.market = (d.market || []).filter(g => !(g && g.id === gid));
+  d.pinned = (d.pinned || []).filter(x => x !== gid);
+  d.offers = (d.offers || []).filter(o => !(o && o.gid === gid));
+  if (d.worn === gid) d.worn = null;
+  const worth = (parse(row.profile) || {}).worth || 0;
+  await env.DB.batch([
+    env.DB.prepare('UPDATE saves SET data = ?, profile = ? WHERE user_id = ?').bind(JSON.stringify(d), JSON.stringify(buildProfile(d, worth)), u.id),
+    env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)').bind(t.id, 'gift', JSON.stringify({ col, serial, from: u.username }), Date.now())
+  ]);
+  await adminLog(env, u.username, 'transfer', t.username, col + ' #' + serial);
+  return json({ ok: true });
+}
+
 const parse = s => { try { return JSON.parse(s); } catch (e) { return null; } };
 
 async function pendingGrants(env, userId) {
@@ -307,6 +338,10 @@ async function route(req, env, url) {
   if (path === '/api/save' && m === 'PUT') {
     const a = await authed(req, env); if (a.res) return a.res;
     return save(req, env, a.u);
+  }
+  if (path === '/api/transfer' && m === 'POST') {
+    const a = await authed(req, env); if (a.res) return a.res;
+    return transfer(req, env, a.u);
   }
   if (path.startsWith('/api/admin/')) {
     const a = await authed(req, env); if (a.res) return a.res;
