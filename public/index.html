@@ -727,17 +727,21 @@ function mkGift(o={}){
 /* ---- сочетание цвета подарка с фоном и комбо редкостей ---- */
 const COL_HUE={'Plush Pepe':125,"Durov's Cap":215,'Precious Peach':18,'Swiss Watch':45,'Astral Shard':275,'Signet Ring':45,'Mini Oscar':45,'Loot Bag':40,'Perfume Bottle':195,'Vintage Cigar':25,'Diamond Ring':190,'Toy Bear':28,'Eternal Rose':350,'Homemade Cake':330,'Lol Pop':320,'Swag Bag':290,'Spiced Wine':350,'Spy Agaric':0,'Hex Pot':280,'Hanging Star':50,'Evil Eye':210,'Sakura Flower':330,'Jack-in-the-Box':40,'Santa Hat':0,'Mood Pack':280,'Chill Flame':20,'Stellar Rocket':210,'Lunar Snake':140,'Pretty Posy':320,'B-Day Candle':45,'Ginger Cookie':28,'Snoop Dogg':130,'Vice Cream':330,'Easter Egg':300,'Liberty Figure':170,'Pool Float':190,'Clover Pin':125,'Heart Locket':350,'Heroic Helmet':45,'Genie Lamp':45,'Bonded Ring':45,"Khabib's Papakha":25,'Top Hat':0,'Algorithm Cup':45,'Artisan Brick':15,'Berry Box':340,'Big Year':210,'Bling Binky':190,'Bow Tie':220,'Bunny Muffin':30,'Candy Cane':0,'Cookie Heart':20,'Crystal Ball':270,'Cupid Charm':340,'Desk Calendar':210,"Durov's Glasses":215,'Electric Skull':200,'Eternal Candle':35,'Faith Amulet':45,'Fine Pen':220,'Flying Broom':30,'Fresh Sock':160,'Gem Signet':200,'Happy Brownie':25,'Holiday Drink':0,'Hypno Lollipop':300,'Ice Cream':200,'Input Key':215,'Instant Ramen':35,'Intelligence Cup':45,'Ion Gem':190,'Ionic Dryer':300,'Jelly Bunny':320,'Jester Hat':280,'Jingle Bell':45,'Jolly Chimp':30,'Joyful Bundle':350,'Kissed Frog':125,'Light Sword':210,'Love Candle':350,'Love Potion':340,'Low Rider':0,'Lucky Locket':45,'Lush Bouquet':330,'Mad Pumpkin':25,'Magic Potion':280,'Mighty Arm':25,'Mirage Lamp':40,'Money Pot':125,'Moon Pendant':45,'Mousse Cake':20,'Nail Bracelet':45,'Neko Helmet':320,'Party Sparkler':300,'Pet Snake':130,'Rare Bird':210,'Record Player':25,'Resistance Dog':30,'Restless Jar':270,'Scared Cat':270,'Sharp Tongue':350,'Skull Flower':300,'Sky Stiletto':330,'Sleigh Bell':45,'Snake Box':130,'Snoop Cigar':28,'Snow Globe':200,'Snow Mitten':350,'Spring Basket':100,'Star Notepad':215,'Surge Board':190,'Tama Gadget':280,'Timeless Book':25,'Trapped Heart':350,'UFC Strike':0,'Valentine Box':350,'Victory Medal':45,'Voodoo Doll':28,'Westside Sign':30,'Whip Cupcake':330,'Winter Wreath':130,'Witch Hat':270,'Xmas Stocking':0};
 const MODEL_SHIFT=[0,22,-22,45,-45,75,-75,150];
-function hexHSL(x){const r=parseInt(x.slice(1,3),16)/255,g=parseInt(x.slice(3,5),16)/255,b=parseInt(x.slice(5,7),16)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,l=(mx+mn)/2;let h=0;if(d){h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h=(h*60+360)%360}return{h,s:d?d/(1-Math.abs(2*l-1)):0}}
+function rgbHSL(a){const r=a[0]/255,g=a[1]/255,b=a[2]/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,l=(mx+mn)/2;let h=0;if(d){h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h=(h*60+360)%360}return{h,s:d?d/(1-Math.abs(2*l-1)):0,l}}
+function hexHSL(x){return rgbHSL([parseInt(x.slice(1,3),16),parseInt(x.slice(3,5),16),parseInt(x.slice(5,7),16)])}
 const BD_HSL=BACKDROPS.map(b=>hexHSL(b[1]));
 function giftHue(g){return(COL_HUE[g.col]+MODEL_SHIFT[g.mi]+360)%360}
 function matchInfo(g){
   if(g.base)return{m:1,tags:[]};
-  const tags=[];let m=1;const b=BD_HSL[g.bi];
-  if(b.s>=.2){
-    let d=Math.abs(giftHue(g)-b.h);d=Math.min(d,360-d);
-    if(d<=12){m=2.2;tags.push('Идеальное совпадение цвета')}
-    else if(d<=25){m=1.6;tags.push('Гармония с фоном')}
-    else if(d<=40){m=1.25;tags.push('Красивое сочетание')}
+  const tags=[];let m=1;
+  /* если цвета уже сняты с настоящей картинки (g.sm) — сравниваем их, иначе запасной вариант по таблице */
+  const sm=g.sm,tb=BD_HSL[g.bi];
+  const bh=sm?sm.bh:tb.h,bs=sm?sm.bs:tb.s,gh=sm?sm.gh:giftHue(g),k=sm?1.2:1;
+  if(bs>=.2&&gh>=0){
+    let d=Math.abs(gh-bh);d=Math.min(d,360-d);
+    if(d<=12*k){m=2.2;tags.push('Идеальное совпадение цвета')}
+    else if(d<=25*k){m=1.6;tags.push('Гармония с фоном')}
+    else if(d<=40*k){m=1.25;tags.push('Красивое сочетание')}
     else if(Math.abs(d-180)<=16){m=1.15;tags.push('Контраст с фоном')}
     else if(d>=70&&d<=150){m=.88;tags.push('Не сочетается с фоном')}
   }
@@ -839,8 +843,19 @@ function sampleBd(g,cb){
     const cl=v=>Math.max(0,Math.min(255,Math.round(v)));
     const M=mids.length?avg(mids):null;
     const C=M?M.map((v,i)=>cl(v+(v-E[i])*.8)):E.map(v=>cl(v*1.18));
-    let bi=0,bd=1e9;BACKDROPS.forEach((b,i)=>{const d=dist(C,hexRGB(b[1]))+dist(E,hexRGB(b[2]));if(d<bd){bd=d;bi=i}});
-    IMG_BD[k]={E,C,i:bi};cb(IMG_BD[k]);(IMG_Q[k]||[]).forEach(f=>f(IMG_BD[k]));IMG_Q[k]=[];
+    /* «Black» и «Onyx Black» — только если край фона реально почти чёрный, иначе это тёмно-серый */
+    const lum=a=>.299*a[0]+.587*a[1]+.114*a[2],darkOK=lum(E)<=30;
+    let bi=0,bd=1e9;BACKDROPS.forEach((b,i)=>{if(!darkOK&&(b[0]==='Black'||b[0]==='Onyx Black'))return;const d=dist(C,hexRGB(b[1]))+dist(E,hexRGB(b[2]));if(d<bd){bd=d;bi=i}});
+    /* цвет самого подарка: берём пиксели из центра, пропуская чистый фон, и усредняем оттенок */
+    let sx=0,sy=0,sw=0,n=0;
+    for(let yy=18;yy<=46;yy+=3)for(let xx=20;xx<=44;xx+=3){
+      const p=px(xx,yy);if(dist(p,C)<20||dist(p,E)<20)continue;
+      const h=rgbHSL(p);if(h.s<.22||h.l<.14||h.l>.9)continue;
+      sx+=Math.cos(h.h*Math.PI/180)*h.s;sy+=Math.sin(h.h*Math.PI/180)*h.s;sw+=h.s;n++;
+    }
+    const gh=(n>=6&&Math.hypot(sx,sy)/sw>=.5)?((Math.atan2(sy,sx)*180/Math.PI)+360)%360:-1;
+    const bc=rgbHSL(C);
+    IMG_BD[k]={E,C,i:bi,sm:{gh:Math.round(gh),bh:Math.round(bc.h),bs:+bc.s.toFixed(2)}};cb(IMG_BD[k]);(IMG_Q[k]||[]).forEach(f=>f(IMG_BD[k]));IMG_Q[k]=[];
   }catch(e){}};
   im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=64&h=64&fit=cover&q=70`;
 }
@@ -855,12 +870,13 @@ function bdDirty(g){
   },250);
 }
 function syncBd(g){
-  if(!g||g.base||g.bsync||g.foreign||UI.render!=='CDN'||!g.serial)return;
+  if(!g||g.base||(g.bsync&&g.sm)||g.foreign||UI.render!=='CDN'||!g.serial)return;
   sampleBd(g,d=>{
-    if(g.bsync)return;g.bsync=1;
-    if(d.i===g.bi)return;
-    const old=fair(g);g.bi=d.i;
-    if(!g.mine&&g.price>0){const nw=fair(g);g.price=+Math.max(.5,g.price*nw/old).toFixed(2)}
+    if(g.bsync&&g.sm)return;
+    const old=fair(g);
+    g.bsync=1;g.sm=d.sm;g.bi=d.i;
+    const nw=fair(g);
+    if(!g.mine&&g.price>0&&old>0)g.price=+Math.max(.5,g.price*nw/old).toFixed(2);
     bdDirty(g);
   });
 }
@@ -1226,7 +1242,7 @@ function renderUp(){
   const bl=bases();
   if(!bl.find(g=>g.id===UI.upId))UI.upId=bl.length?bl[0].id:null;
   if(!$('up-sel')){
-    const opts=COL_NAMES.filter(c=>COLS[c].floor<=150).sort((x,y)=>COLS[x].floor-COLS[y].floor).map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('');
+    const opts=COL_NAMES.slice().sort((x,y)=>COLS[x].floor-COLS[y].floor).map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('');
     $('up-pills').innerHTML=`<div class="mut" style="width:100%;flex:none;margin-bottom:2px">Купить обычный подарок:</div><select id="up-sel" class="input" style="flex:1;min-width:0;font-size:14px;padding:10px 12px" onchange="renderUp()">${opts}</select><button class="pill on" style="height:44px" onclick="if(!UI.upBusy)buyBase($('up-sel').value)">Купить · <span id="up-cost"></span></button>`;
   }
   $('up-cost').textContent=f2(baseCost($('up-sel').value));
@@ -1257,13 +1273,13 @@ function doUpgrade(){
   if(mode==='jack'){
     /* редкие красивые номера: подбираем те, что дают крупный выигрыш (сотни TON), но не заоблачный */
     const pool=[7,77,777,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,33333,44444,55555,66666,77777,88888,99999,12345,1337].filter(x=>x<=sup).map(mk);
-    const lo=Math.max(invested*10,150),hi=2500;
+    const lo=Math.max(invested*(invested>300?4:10),150),hi=Math.max(2500,invested*40);
     const ok=pool.filter(c=>c.f>=lo&&c.f<=hi);
     pickd=ok.length?pick(ok):pool.sort((a,b)=>b.f-a.f)[0];
   }
   if(!pickd){
     let best=null;
-    for(let i=0;i<800;i++){
+    for(let i=0;i<4000;i++){
       const c=mk(genSerial(sup));
       const good=mode==='win'?(c.f>=invested*1.08&&c.f<=invested*6):(c.f<invested*.99);
       if(good){pickd=c;break}
