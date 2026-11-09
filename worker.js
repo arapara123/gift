@@ -212,7 +212,7 @@ async function transfer(req, env, u) {
   const d = row && parse(row.data);
   const i = d && Array.isArray(d.inv) ? d.inv.findIndex(g => g && !g.base && g.col === col && Number(g.serial) === serial) : -1;
   if (i < 0) return err('Подарок не найден в сохранении. Подождите пару секунд и повторите');
-  const gid = d.inv[i].id;
+  const gid = d.inv[i].id, vcap = num(d.inv[i].vcap, 0, 1e7);
   d.inv.splice(i, 1);
   d.market = (d.market || []).filter(g => !(g && g.id === gid));
   d.pinned = (d.pinned || []).filter(x => x !== gid);
@@ -221,7 +221,7 @@ async function transfer(req, env, u) {
   const worth = (parse(row.profile) || {}).worth || 0;
   await env.DB.batch([
     env.DB.prepare('UPDATE saves SET data = ?, profile = ? WHERE user_id = ?').bind(JSON.stringify(d), JSON.stringify(buildProfile(d, worth)), u.id),
-    env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)').bind(t.id, 'gift', JSON.stringify({ col, serial, from: u.username }), Date.now())
+    env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)').bind(t.id, 'gift', JSON.stringify({ col, serial, from: u.username, vcap }), Date.now())
   ]);
   await adminLog(env, u.username, 'transfer', t.username, col + ' #' + serial);
   return json({ ok: true });
