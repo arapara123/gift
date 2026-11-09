@@ -307,6 +307,36 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 .tgapp .nav{bottom:calc(12px + env(safe-area-inset-bottom) + var(--tg-safe-area-inset-bottom,0px))}
 .tgapp #toasts{top:calc(12px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
 .tgapp body,.tgapp html{overscroll-behavior:none}
+
+/* ===== анимация улучшения ===== */
+#up-stage{position:relative}
+.ubd{position:absolute;inset:0;opacity:0;transition:opacity .32s linear}
+.ubd.on{opacity:1}
+.urays{position:absolute;left:50%;top:44%;width:420px;height:420px;margin:-210px 0 0 -210px;opacity:0;pointer-events:none;background:repeating-conic-gradient(rgba(255,255,255,.2) 0 7deg,transparent 7deg 22deg);-webkit-mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);animation:urot 7s linear infinite}
+@keyframes urot{to{transform:rotate(360deg)}}
+.ugift{position:relative;z-index:3;width:96px;height:96px;border-radius:26px;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:rgba(255,255,255,.92);background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);box-shadow:0 14px 40px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.4);overflow:hidden;will-change:transform}
+.ugift.done{width:122px;height:122px;background:none;border-color:transparent;box-shadow:none;animation:upop .5s cubic-bezier(.2,1.6,.4,1)}
+@keyframes upop{from{transform:scale(.6)}to{transform:scale(1)}}
+.ugift img.uimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s}
+.ugift img.uimg.ld{opacity:1}
+.ugift img.uimg.ld+span{display:none}
+.uttl{position:relative;z-index:3;margin-top:10px;font-size:13px;font-weight:800;color:rgba(255,255,255,.92);text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.uttl i{font-style:normal;animation:udot 1.2s infinite}
+.uttl i:nth-child(2){animation-delay:.2s}.uttl i:nth-child(3){animation-delay:.4s}
+@keyframes udot{0%,60%,100%{opacity:.2}30%{opacity:1}}
+.uttl.res{font-size:16px}.uttl.res small{opacity:.8;font-size:12px}
+.uflash{position:absolute;inset:0;z-index:5;background:#fff;opacity:0;pointer-events:none}
+.uflash.jp{background:#ffd76a}
+.uflash.go{animation:uflash .7s ease-out}
+@keyframes uflash{0%{opacity:.85}100%{opacity:0}}
+.uring{position:absolute;left:50%;top:44%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:3px solid rgba(255,255,255,.8);opacity:0;z-index:4;pointer-events:none}
+.uring.go{animation:uring .8s ease-out}
+@keyframes uring{0%{opacity:.9;transform:scale(.6)}100%{opacity:0;transform:scale(4)}}
+.reel b.rl{animation:rlin .16s ease-out}
+@keyframes rlin{from{transform:translateY(-9px);opacity:.1;filter:blur(2px)}to{transform:none;opacity:1;filter:none}}
+.reel.rolling{border-color:rgba(88,169,255,.6);box-shadow:inset 0 0 14px rgba(88,169,255,.25)}
+.reel.lock{border-color:var(--blue2);animation:rlock .35s cubic-bezier(.2,1.6,.4,1)}
+@keyframes rlock{0%{transform:scale(1)}50%{transform:scale(1.09)}100%{transform:scale(1)}}
 </style>
 </head>
 <body>
@@ -658,6 +688,7 @@ function patchState(){
   COL_NAMES.forEach(c=>{if(S.floors[c]==null)S.floors[c]=COLS[c].floor});
   COL_NAMES.forEach(c=>{if(!S.fh[c])S.fh[c]=Array(30).fill(S.floors[c]||COLS[c].floor)});
   // номер определяет всё: пересчитываем признаки по номеру
+  [...S.market,...S.inv].forEach(g=>{if(!g.base&&COLS[g.col]&&!(Number.isFinite(g.serial)&&g.serial>=1)){g.serial=Math.max(1,Math.ceil(Math.random()*COLS[g.col].supply));g.bsync=0;g.sm=null}});
   [...S.market,...S.inv].forEach(g=>{if(!g.base&&!g.bsync){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}});
   if(stale){S.market=S.market.filter(g=>g.mine);S.mv=6;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
 }
@@ -714,8 +745,8 @@ function genSerial(sup,boost=1){
   const cap=Math.min(sup,100000);
   const r=Math.random();
   /* красивые номера теперь действительно редкие (boost>1 — на маркете, 1 — при апгрейде) */
-  if(r<.004*boost)return 1+Math.floor(Math.random()*100);
-  if(r<.01*boost){const c=[111,222,333,444,555,666,777,888,999,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,55555,77777,99999,1000,2000,5000,10000,1234,12345,4242,1001,2002,1221,12321,420,1337].filter(x=>x<=cap);return pick(c)}
+  if(r<.004*boost)return 1+Math.floor(Math.random()*Math.min(100,cap));
+  if(r<.01*boost){const c=[111,222,333,444,555,666,777,888,999,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,55555,77777,99999,1000,2000,5000,10000,1234,12345,4242,1001,2002,1221,12321,420,1337].filter(x=>x<=cap);if(c.length)return pick(c)}
   return Math.max(1,Math.ceil(Math.random()*sup));
 }
 
@@ -1268,7 +1299,7 @@ function doUpgrade(){
   /* исход определяется броском: джекпот (очень редко) / плюс (всего ~30%) / минус (остальные) */
   const invested=+(g.bought+cost).toFixed(2),roll=Math.random(),sup=COLS[g.col].supply;
   const mode=roll<UP_JACK?'jack':roll<UP_WIN?'win':'lose';
-  const mk=sn=>{const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
+  const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
   let pickd=null;
   if(mode==='jack'){
     /* редкие красивые номера: подбираем те, что дают крупный выигрыш (сотни TON), но не заоблачный */
@@ -1289,22 +1320,67 @@ function doUpgrade(){
   }
   const serial=pickd.sn,r=Object.assign({col:g.col,serial},pickd.tr);
   const jackpot=mode==='jack';
-  let t=0;const st=$('up-stage');
-  ['r-m','r-b','r-p'].forEach(i=>$(i).classList.add('spin'));
-  const iv=setInterval(()=>{t++;sfx.tick();
-    const b=BACKDROPS[t%BACKDROPS.length];
-    if(t<10){$('r-m-v').textContent=MODELS[t%8][0]}else if(t===10){$('r-m').classList.remove('spin');$('r-m-v').textContent=MODELS[r.mi][0];$('r-m-p').textContent=modelPct(r)}
-    if(t<16){$('r-b-v').textContent=b[0];st.style.background=`radial-gradient(circle,${b[1]},${b[2]})`}else if(t===16){$('r-b').classList.remove('spin');$('r-b-v').textContent=BACKDROPS[r.bi][0];$('r-b-p').textContent=bdPct(r);st.style.background=bg(r)}
-    if(t<22){$('r-p-v').textContent=PATTERNS[t%PATTERNS.length][0]}else{
-      clearInterval(iv);$('r-p').classList.remove('spin');$('r-p-v').textContent=PATTERNS[r.pi][0];$('r-p-p').textContent=patPct(r);
-      Object.assign(g,{mi:r.mi,bi:r.bi,pi:r.pi,serial:r.serial,base:false,bought:+(g.bought+cost).toFixed(2)});
-      UI.upBusy=false;UI.upId=null;sfx.sale();vib([30,50,30]);log(`Апгрейд ${g.col} #${g.serial}`,'-'+f2(cost),'amber');
-      const fv=fair(g),si=serialInfo(g.serial,g.col);
-      if(jackpot){confetti(260);toast(` ДЖЕКПОТ! ${g.col} #${g.serial} · оценка ${f2(fv)} TON`,'ok')}
-      else if(fv>=g.bought||si.m>=1.5)confetti(100);
-      if(!jackpot)toast(` ${g.col} #${g.serial}${si.tags.length?'  '+si.tags[0]:''} · оценка ${f2(fv)} TON (вложено ${f2(g.bought)})`,fv>=g.bought?'ok':'bad');
-      save();refresh();setTimeout(()=>openGift(g.id,true),400)}
-  },95);
+  /* ---------- анимация улучшения: три барабана, плавная смена фона, вращение подарка, вспышка ---------- */
+  const q=id=>$(id)||document.createElement('i'),cl=(v,a,b)=>Math.max(a,Math.min(b,v)),ease=x=>1-Math.pow(1-x,3),T0=performance.now();
+  const st=$('up-stage');
+  st.style.background='#0c0e14';
+  st.innerHTML='<div class="ubd on" id="ubdA"></div><div class="ubd" id="ubdB"></div><div class="urays" id="urays"></div><div class="uring" id="uring"></div><div class="ugift" id="ugift"><span>'+ini(g.col)+'</span></div><div class="uttl" id="uttl">Улучшаем<i>.</i><i>.</i><i>.</i></div><div class="uflash" id="uflash"></div>';
+  const ug=q('ugift'),rays=q('urays'),bdA=q('ubdA'),bdB=q('ubdB');
+  let on=bdA;
+  const setBd=css=>{const nx=on===bdA?bdB:bdA;nx.style.background=css;nx.classList.add('on');on.classList.remove('on');on=nx};
+  const tP=1900,tM=2800,tB=jackpot?5400:3700,TEND=Math.max(tP,tM,tB);
+  const reels=[
+    {k:'r-m',n:MODELS.length,fin:r.mi,T:tM,pct:()=>modelPct(r),nm:i=>MODELS[i][0]},
+    {k:'r-b',n:BACKDROPS.length,fin:r.bi,T:tB,pct:()=>bdPct(r),nm:i=>BACKDROPS[i][0],bd:1},
+    {k:'r-p',n:PATTERNS.length,fin:r.pi,T:tP,pct:()=>patPct(r),nm:i=>PATTERNS[i][0]}
+  ];
+  reels.forEach(x=>{x.i=Math.floor(Math.random()*x.n);x.next=0;x.done=false;const e=q(x.k);e.classList.remove('lock','spin');e.classList.add('rolling');q(x.k+'-p').textContent=''});
+  const show=(x,i)=>{
+    const v=q(x.k+'-v');v.textContent=x.nm(i);v.classList.remove('rl');void v.offsetWidth;v.classList.add('rl');
+    if(x.bd)setBd(`radial-gradient(circle at 50% 42%,${BACKDROPS[i][1]},${BACKDROPS[i][2]})`);
+  };
+  const reveal=()=>{
+    Object.assign(g,{mi:r.mi,bi:r.bi,pi:r.pi,serial:r.serial,base:false,bought:+(g.bought+cost).toFixed(2)});
+    ug.style.transform='';ug.classList.add('done');
+    ug.innerHTML=imgTag(g,'uimg')+'<span>'+ini(g.col)+'</span>';
+    const tt=q('uttl');tt.classList.add('res');tt.innerHTML=escH(g.col)+' <small>#'+nf(g.serial)+'</small>';
+    if(jackpot)q('uflash').classList.add('jp');
+    q('uflash').classList.add('go');q('uring').classList.add('go');
+    sfx.sale();vib([30,50,30]);log(`Апгрейд ${g.col} #${g.serial}`,'-'+f2(cost),'amber');
+    const fv=fair(g),si=serialInfo(g.serial,g.col);
+    if(jackpot){confetti(260);toast(` ДЖЕКПОТ! ${g.col} #${g.serial} · оценка ${f2(fv)} TON`,'ok')}
+    else if(fv>=g.bought||si.m>=1.5)confetti(100);
+    if(!jackpot)toast(` ${g.col} #${g.serial}${si.tags.length?'  '+si.tags[0]:''} · оценка ${f2(fv)} TON (вложено ${f2(g.bought)})`,fv>=g.bought?'ok':'bad');
+    save();refresh();
+    setTimeout(()=>{UI.upBusy=false;UI.upId=null;renderUp();openGift(g.id,true)},1400);
+  };
+  const frame=now=>{
+    const el=now-T0;
+    reels.forEach(x=>{
+      if(x.done)return;
+      if(el>=x.T){
+        x.done=true;x.i=x.fin;show(x,x.fin);
+        if(x.bd)setBd(bg(r));
+        q(x.k+'-p').textContent=x.pct();
+        const e=q(x.k);e.classList.remove('rolling');e.classList.add('lock');
+        beep(520+reels.filter(y=>y.done).length*170,.14,'triangle',.13);vib(18);
+        return;
+      }
+      if(el>=x.next){
+        /* итог не показываем раньше времени */
+        do{x.i=(x.i+1+Math.floor(Math.random()*(x.n-1)))%x.n}while(x.i===x.fin&&el<x.T-400);
+        show(x,x.i);
+        if(x.k==='r-m')sfx.tick();
+        const p=el/x.T;x.next=el+Math.max(x.bd?140:70,60+190*p*p);
+      }
+    });
+    const p=cl(el/TEND,0,1);
+    ug.style.transform=`perspective(460px) rotateY(${(1440*ease(p)).toFixed(1)}deg) scale(${(1+.07*Math.sin(el/80)*(1-p)).toFixed(3)})`;
+    rays.style.opacity=(cl(el/1400,0,1)*.9).toFixed(2);
+    if(el>=TEND+450){reveal();return}
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
 }
 
 /* =================== ОФФЕРЫ / ФЛОР / ЛЕНТА =================== */
