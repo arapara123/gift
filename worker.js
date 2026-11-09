@@ -41,9 +41,6 @@ async function init(db) {
   await db.exec('CREATE TABLE IF NOT EXISTS grants (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, ts INTEGER NOT NULL, applied INTEGER NOT NULL DEFAULT 0)');
   await db.exec('CREATE INDEX IF NOT EXISTS grants_u ON grants (user_id, applied)');
   await db.exec('CREATE TABLE IF NOT EXISTS admin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL, detail TEXT NOT NULL)');
-  await db.exec('CREATE TABLE IF NOT EXISTS trades (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id INTEGER NOT NULL, to_id INTEGER NOT NULL, col TEXT NOT NULL, serial INTEGER NOT NULL, price REAL NOT NULL, vcap REAL NOT NULL DEFAULT 0, vmul REAL NOT NULL DEFAULT 0, ts INTEGER NOT NULL, status TEXT NOT NULL DEFAULT \'pending\')');
-  await db.exec('CREATE INDEX IF NOT EXISTS trades_to ON trades (to_id, status)');
-  await db.exec('CREATE INDEX IF NOT EXISTS trades_from ON trades (from_id, status)');
   ready = true;
 }
 
@@ -196,17 +193,6 @@ async function save(req, env, user) {
     if ((rs.results || []).some(r => !ack.includes(r.id))) { d.profit = 0; d.flips = 0; d.best = 0; d.vol = 0; d.spent = 0; }
   }
 
-  /* подарок, который уже продан другому игроку, но продавец ещё не применил выдачу: из его сохранения убираем */
-  {
-    const ts = await env.DB.prepare("SELECT id, payload FROM grants WHERE user_id = ? AND applied = 0 AND kind = 'trade-sale'").bind(user.id).all();
-    for (const r of (ts.results || [])) {
-      if (ack.includes(r.id)) continue;
-      const p = parse(r.payload) || {};
-      const g = d.inv.find(x => x && !x.base && x.col === p.col && Number(x.serial) === p.serial);
-      if (g) dropGift(d, g.id);
-    }
-  }
-
   const profile = JSON.stringify(buildProfile(d, b.worth));
   const stmts = [env.DB.prepare(
     'INSERT INTO saves (user_id, data, profile, updated) VALUES (?, ?, ?, ?) ' +
@@ -246,14 +232,6 @@ async function transfer(req, env, u) {
   ]);
   await adminLog(env, u.username, 'transfer', t.username, col + ' #' + serial);
   return json({ ok: true });
-}
-
-function dropGift(d, gid) {
-  d.inv = (d.inv || []).filter(g => !(g && g.id === gid));
-  d.market = (d.market || []).filter(g => !(g && g.id === gid));
-  d.pinned = (d.pinned || []).filter(x => x !== gid);
-  d.offers = (d.offers || []).filter(o => !(o && o.gid === gid));
-  if (d.worn === gid) d.worn = null;
 }
 
 const parse = s => { try { return JSON.parse(s); } catch (e) { return null; } };
@@ -357,103 +335,6 @@ async function adminRoute(req, env, url, path, m, u) {
   return err('Не найдено', 404);
 }
 
-/* ================= ПРОДАЖА ПОДАРКОВ ДРУГИМ ИГРОКАМ ================= */
-const TRADE_MS = 864e5;   /* предложение живёт сутки */
-
-async function tradeOffer(req, env, u) {
-  let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
-  const t = await findUser(env, b.user);
-  if (!t) return err('Игрок не найден', 404);
-  if (t.id === u.id) return err('Нельзя продать подарок самому себе');
-  if (await env.DB.prepare('SELECT 1 AS x FROM bans WHERE user_id = ?').bind(t.id).first()) return err('Этот игрок заблокирован');
-  const col = String(b.col || '');
-  if (!COL_RE.test(col)) return err('Неверная коллекция');
-  const serial = int(b.serial, 1, 1000000);
-  const price = Math.round(Number(b.price) * 100) / 100;
-  if (!Number.isFinite(price) || price < 0 || price > 500000) return err('Цена: от 0 до 500000 TON');
-  if (await limited(env.DB, 'toffer:' + u.id, 30, 3600000)) return err('Слишком много предложений. Попробуйте позже', 429);
-  const now = Date.now();
-  const cnt = await env.DB.prepare("SELECT COUNT(*) AS n FROM trades WHERE from_id = ? AND status = 'pending' AND ts > ?").bind(u.id, now - TRADE_MS).first();
-  if (cnt && cnt.n >= 20) return err('Слишком много активных предложений (максимум 20). Отмените лишние');
-  const row = await env.DB.prepare('SELECT data FROM saves WHERE user_id = ?').bind(u.id).first();
-  const d = row && parse(row.data);
-  const g = d && Array.isArray(d.inv) ? d.inv.find(x => x && !x.base && x.col === col && Number(x.serial) === serial) : null;
-  if (!g) return err('Подарок не найден в сохранении. Подождите пару секунд и повторите');
-  await env.DB.batch([
-    env.DB.prepare("UPDATE trades SET status = 'cancelled' WHERE from_id = ? AND col = ? AND serial = ? AND status = 'pending'").bind(u.id, col, serial),
-    env.DB.prepare('INSERT INTO trades (from_id, to_id, col, serial, price, vcap, vmul, ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(u.id, t.id, col, serial, price, num(g.vcap, 0, 1e7), num(g.vmul, 0, 1000), now)
-  ]);
-  return json({ ok: true });
-}
-
-async function tradeList(env, u) {
-  const since = Date.now() - TRADE_MS;
-  const inc = await env.DB.prepare(
-    "SELECT t.id, t.col, t.serial, t.price, t.ts, x.username AS other FROM trades t JOIN users x ON x.id = t.from_id " +
-    "WHERE t.to_id = ? AND t.status = 'pending' AND t.ts > ? ORDER BY t.id DESC LIMIT 30"
-  ).bind(u.id, since).all();
-  const out = await env.DB.prepare(
-    "SELECT t.id, t.col, t.serial, t.price, t.ts, x.username AS other FROM trades t JOIN users x ON x.id = t.to_id " +
-    "WHERE t.from_id = ? AND t.status = 'pending' AND t.ts > ? ORDER BY t.id DESC LIMIT 30"
-  ).bind(u.id, since).all();
-  return json({ in: inc.results || [], out: out.results || [] });
-}
-
-async function tradeClose(req, env, u) {
-  let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
-  const id = int(b.id, 1, 1e12);
-  const t = await env.DB.prepare("SELECT from_id, to_id FROM trades WHERE id = ? AND status = 'pending'").bind(id).first();
-  if (!t || (t.from_id !== u.id && t.to_id !== u.id)) return err('Предложение не найдено', 404);
-  await env.DB.prepare("UPDATE trades SET status = ? WHERE id = ? AND status = 'pending'").bind(t.from_id === u.id ? 'cancelled' : 'declined', id).run();
-  return json({ ok: true });
-}
-
-/* покупка: сервер сам проверяет баланс покупателя и наличие подарка у продавца,
-   убирает подарок из сохранения продавца и выдаёт грант покупателю (−TON, +подарок) и продавцу (+TON) */
-async function tradeAccept(req, env, u) {
-  let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
-  const id = int(b.id, 1, 1e12), now = Date.now();
-  const t = await env.DB.prepare("SELECT * FROM trades WHERE id = ? AND to_id = ? AND status = 'pending' AND ts > ?").bind(id, u.id, now - TRADE_MS).first();
-  if (!t) return err('Предложение устарело или отменено', 404);
-  const seller = await env.DB.prepare(
-    'SELECT u.id, u.username, (b.user_id IS NOT NULL) AS banned FROM users u LEFT JOIN bans b ON b.user_id = u.id WHERE u.id = ?'
-  ).bind(t.from_id).first();
-  if (!seller || seller.banned) return err('Продавец недоступен');
-
-  const brow = await env.DB.prepare('SELECT data FROM saves WHERE user_id = ?').bind(u.id).first();
-  const bd = brow && parse(brow.data);
-  if (!bd || !Number.isFinite(bd.ton)) return err('Не удалось проверить баланс. Повторите через пару секунд');
-  const pend = await env.DB.prepare("SELECT payload FROM grants WHERE user_id = ? AND applied = 0 AND kind = 'trade-buy'").bind(u.id).all();
-  let held = 0;
-  for (const r of (pend.results || [])) held += Number((parse(r.payload) || {}).amount) || 0;
-  if (bd.ton - held + 1e-9 < t.price) return err('Не хватает TON');
-
-  const srow = await env.DB.prepare('SELECT data, profile FROM saves WHERE user_id = ?').bind(t.from_id).first();
-  const sd = srow && parse(srow.data);
-  const g = sd && Array.isArray(sd.inv) ? sd.inv.find(x => x && !x.base && x.col === t.col && Number(x.serial) === t.serial) : null;
-  if (!g) {
-    await env.DB.prepare("UPDATE trades SET status = 'cancelled' WHERE id = ? AND status = 'pending'").bind(id).run();
-    return err('Подарок уже недоступен у продавца');
-  }
-  const claim = await env.DB.prepare("UPDATE trades SET status = 'accepted' WHERE id = ? AND status = 'pending'").bind(id).run();
-  if (!claim.meta || !claim.meta.changes) return err('Предложение уже закрыто', 409);
-
-  const vcap = num(g.vcap, 0, 1e7), vmul = num(g.vmul, 0, 1000);
-  dropGift(sd, g.id);
-  const worth = (parse(srow.profile) || {}).worth || 0;
-  await env.DB.batch([
-    env.DB.prepare('UPDATE saves SET data = ?, profile = ? WHERE user_id = ?').bind(JSON.stringify(sd), JSON.stringify(buildProfile(sd, worth)), t.from_id),
-    env.DB.prepare("UPDATE trades SET status = 'cancelled' WHERE from_id = ? AND col = ? AND serial = ? AND status = 'pending'").bind(t.from_id, t.col, t.serial),
-    env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
-      .bind(u.id, 'trade-buy', JSON.stringify({ col: t.col, serial: t.serial, amount: t.price, from: seller.username, vcap, vmul }), now),
-    env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
-      .bind(t.from_id, 'trade-sale', JSON.stringify({ col: t.col, serial: t.serial, amount: t.price, to: u.username }), now)
-  ]);
-  await adminLog(env, u.username, 'trade', seller.username, t.col + ' #' + t.serial + ' for ' + t.price);
-  return json({ ok: true });
-}
-
 async function route(req, env, url) {
   const path = url.pathname.replace(/\/+$/, ''), m = req.method;
 
@@ -486,22 +367,6 @@ async function route(req, env, url) {
   if (path === '/api/transfer' && m === 'POST') {
     const a = await authed(req, env); if (a.res) return a.res;
     return transfer(req, env, a.u);
-  }
-  if (path === '/api/trade/list' && m === 'GET') {
-    const a = await authed(req, env); if (a.res) return a.res;
-    return tradeList(env, a.u);
-  }
-  if (path === '/api/trade/offer' && m === 'POST') {
-    const a = await authed(req, env); if (a.res) return a.res;
-    return tradeOffer(req, env, a.u);
-  }
-  if (path === '/api/trade/accept' && m === 'POST') {
-    const a = await authed(req, env); if (a.res) return a.res;
-    return tradeAccept(req, env, a.u);
-  }
-  if (path === '/api/trade/close' && m === 'POST') {
-    const a = await authed(req, env); if (a.res) return a.res;
-    return tradeClose(req, env, a.u);
   }
   if (path.startsWith('/api/admin/')) {
     const a = await authed(req, env); if (a.res) return a.res;
