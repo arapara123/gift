@@ -1008,7 +1008,8 @@ function bdPct(g){return pct(BACKDROPS[g.bi][3],SUMS.b)}
 function patPct(g){return pct(PATTERNS[g.pi][2],SUMS.p)}
 /* часть продавцов не замечает редкий номер — это шанс найти «гем» */
 /* целевое число лотов коллекции: чем дешевле подарок, тем его больше на рынке */
-function baseTarget(c){return clamp(52/Math.pow(COLS[c].floor,.42),2.5,34)}
+function baseTarget(c){const f=COLS[c].floor;if(f>=1000)return clamp(52/Math.pow(f,.42),2.5,34); /* Plush Pepe и кубки — как раньше, мало лотов */
+  return clamp(160/Math.pow(f,.42),14,90)} /* остальные подарки — много лотов */
 function niceAsk(v){
   if(v<30)return +v.toFixed(2);
   const r=Math.random();
@@ -1341,7 +1342,7 @@ function tick(){
       while(n-->0){const pool=S.market.filter(x=>!x.mine&&x.col===c);if(pool.length<=want)break;const v=pick(pool);S.market=S.market.filter(x=>x.id!==v.id)}
     }
   });
-  adds=adds.sort(()=>Math.random()-.5).slice(0,18);
+  adds=adds.sort(()=>Math.random()-.5).slice(0,60);
   {
     const ex=adds.find(c=>COLS[c].floor>=400&&(cnt[c]||0)>=5);
     if(ex)feed(`<b>${ex}</b>: на рынок вышла партия лотов — сейчас ${(cnt[ex]||0)+adds.filter(x=>x===ex).length} шт.`);
@@ -1643,7 +1644,7 @@ function renderUp(){
   const bl=bases();
   if(!bl.find(g=>g.id===UI.upId))UI.upId=bl.length?bl[0].id:null;
   if(!$('up-sel')){
-    const opts=COL_NAMES.filter(c=>!NO_UP.has(c)).sort((x,y)=>COLS[x].floor-COLS[y].floor).map(c=>`<option value="${escH(c)}">${escH(c)}</option>`).join('');
+    const opts=COL_NAMES.filter(c=>!NO_UP.has(c)).sort((x,y)=>baseCost(x)-baseCost(y)||x.localeCompare(y)).map(c=>`<option value="${escH(c)}">${escH(c)} · ${f2(baseCost(c))} TON</option>`).join('');
     $('up-pills').innerHTML=`<div class="mut" style="width:100%;flex:none;margin-bottom:2px">Купить обычный подарок:</div><select id="up-sel" class="input" style="flex:1;min-width:0;font-size:14px;padding:10px 12px" onchange="renderUp()">${opts}</select><button class="pill on" style="height:44px" onclick="if(!UI.upBusy)buyBase($('up-sel').value)">Купить · <span id="up-cost"></span></button>`;
   }
   $('up-cost').textContent=f2(baseCost($('up-sel').value));
