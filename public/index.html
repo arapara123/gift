@@ -689,6 +689,11 @@ function patchState(){
   COL_NAMES.forEach(c=>{if(!S.fh[c])S.fh[c]=Array(30).fill(S.floors[c]||COLS[c].floor)});
   // номер определяет всё: пересчитываем признаки по номеру
   [...S.market,...S.inv].forEach(g=>{if(!g.base&&COLS[g.col]&&!(Number.isFinite(g.serial)&&g.serial>=1)){g.serial=Math.max(1,Math.ceil(Math.random()*COLS[g.col].supply));g.bsync=0;g.sm=null}});
+  {const seen=new Set();[...S.inv,...S.market].forEach(g=>{
+    if(g.base||!COLS[g.col]||!(g.serial>=1))return;
+    const k=g.col+'#'+g.serial;
+    if(seen.has(k)){const sup=COLS[g.col].supply;let n=g.serial,t=0;do{n=Math.max(1,Math.ceil(Math.random()*sup))}while(seen.has(g.col+'#'+n)&&t++<80);g.serial=n;g.bsync=0;g.sm=null}
+    seen.add(g.col+'#'+g.serial)})}
   [...S.market,...S.inv].forEach(g=>{if(!g.base&&!g.bsync){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}});
   if(stale){S.market=S.market.filter(g=>g.mine);S.mv=6;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
 }
@@ -720,9 +725,10 @@ function copyTxt(t){try{navigator.clipboard.writeText(t)}catch(e){}toast(' Ск�
 function serialInfo(s,col){
   const sup=(COLS[col]&&COLS[col].supply)||1e9,str=String(s),tags=[];let m=1;
   /* одинаковая логика для всех коллекций, отличается только флор */
-  if(s<=10){m=6;tags.push('Топ-10')}
-  else if(s<=100){m=2.2;tags.push('Топ-100')}
-  else if(s<=1000){m=1.3;tags.push('Топ-1000')}
+  const t1=Math.min(10,Math.ceil(sup*.01)),t2=Math.min(100,Math.ceil(sup*.05)),t3=Math.min(1000,Math.ceil(sup*.25));
+  if(s<=t1){m=6;tags.push('Топ-10')}
+  else if(s<=t2){m=2.2;tags.push('Топ-100')}
+  else if(s<=t3){m=1.3;tags.push('Топ-1000')}
   let pm=1;
   if(str.length>=3&&/^(\d)\1+$/.test(str)){
     /* одинаковые цифры: чем длиннее ряд, тем космически дороже */
@@ -786,7 +792,7 @@ function fair(g,noSerial,noBeauty){
   if(g.base)return +(S.floors[g.col]*BASE_BUY).toFixed(2);
   const mp=premium(MODELS[g.mi][1]*30/SUMS.m*3.3), bp=premium(BACKDROPS[g.bi][3]*30/SUMS.b*19), pp=premium(PATTERNS[g.pi][2]*30/SUMS.p*9);
   const sr=(noSerial?1:serialInfo(g.serial,g.col).m)*(noBeauty?1:matchInfo(g).m);
-  return +Math.max(S.floors[g.col]*mp*Math.pow(bp,.95)*Math.pow(pp,.65)*sr,S.floors[g.col]*.95).toFixed(2);
+  return +Math.max(S.floors[g.col]*mp*Math.pow(bp,.95)*Math.pow(pp,.65)*sr,S.floors[g.col]*.65).toFixed(2);
 }
 const pct=(w,sum)=>{const v=w/sum*100;return parseFloat(v.toFixed(v<1?2:1))+'%'};
 const nf=n=>Number(n).toLocaleString('ru-RU');
@@ -812,10 +818,12 @@ function marketPrice(g){
   const plain=fair(g,false,true);
   if(f>plain*1.25&&r<.14)return niceAsk(Math.max(plain*rnd(.95,1.15),S.floors[g.col]*rnd(1,1.04)));
   let k;
-  if(r<.08)k=rnd(.82,.93);
-  else if(r<.78)k=rnd(.95,1.1);
-  else if(r<.93)k=rnd(1.1,1.3);
-  else k=rnd(1.3,1.6);
+  if(r<.03)k=rnd(.6,.8);
+  else if(r<.11)k=rnd(.82,.93);
+  else if(r<.72)k=rnd(.95,1.1);
+  else if(r<.90)k=rnd(1.1,1.3);
+  else if(r<.97)k=rnd(1.3,1.6);
+  else k=rnd(1.6,2.3);
   return niceAsk(Math.max(.5,f*k,S.floors[g.col]*rnd(1,1.04)));
 }
 
@@ -1021,7 +1029,7 @@ function tick(){
   });
   // рыночные события: памп / дамп коллекции
   if(Math.random()<.05){
-    const c=pick(COL_NAMES),up=Math.random()<.55,k=up?rnd(1.05,1.14):rnd(.88,.95);
+    const c=pick(COL_NAMES),up=Math.random()<.5,big=Math.random()<.2,k=up?(big?rnd(1.15,1.4):rnd(1.05,1.14)):(big?rnd(.65,.85):rnd(.88,.95));
     S.floors[c]=+clamp(S.floors[c]*k,COLS[c].floor*.5,COLS[c].floor*3).toFixed(2);S.fh[c][S.fh[c].length-1]=S.floors[c];
     const p=Math.round((k-1)*100);
     feed(`${up?'':''} <b>${c}</b>: флор ${p>0?'+':''}${p}% — ${up?'кто-то выкупает коллекцию':'продавцы паникуют'}`);
@@ -1038,7 +1046,7 @@ function tick(){
   const up=S.inv.filter(x=>!x.base);
   if(up.length&&S.offers.length<4&&Math.random()<.11){
     const g=pick(up);if(!S.offers.some(o=>o.gid===g.id)){
-      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b[0],av:b[1],price:+(fair(g)*rnd(.84,1.0)).toFixed(2),exp:Date.now()+120000});sfx.offer();vib(40);toast(` Оффер на ${g.col} #${g.serial}`)}
+      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b[0],av:b[1],price:+(fair(g)*(Math.random()<.06?rnd(1.12,1.55):rnd(.84,1.0))).toFixed(2),exp:Date.now()+120000});sfx.offer();vib(40);toast(` Оффер на ${g.col} #${g.serial}`)}
   }
   S.offers=S.offers.filter(o=>o.exp>Date.now()&&S.inv.some(g=>g.id===o.gid));
   // боты скупают самые выгодные чужие лоты
@@ -1296,25 +1304,32 @@ function doUpgrade(){
   if(S.ton<cost){toast(`Нужно ${f2(cost)} TON`,'bad');return}
   S.ton=+(S.ton-cost).toFixed(2);S.spent+=cost;S.vol=+(S.vol+cost).toFixed(2);UI.upBusy=true;sfx.buy();
   $('h-bal').textContent=f2(S.ton);
-  /* исход определяется броском: джекпот (очень редко) / плюс (всего ~30%) / минус (остальные) */
+  /* исход определяется броском: джекпот (0.4%) / крупный выигрыш (3.6%) / выигрыш (22%) → в плюс ~26%;
+     небольшой минус (29%) / сильный минус (45%). Диапазоны — во сколько раз результат больше вложенного */
   const invested=+(g.bought+cost).toFixed(2),roll=Math.random(),sup=COLS[g.col].supply;
-  const mode=roll<UP_JACK?'jack':roll<UP_WIN?'win':'lose';
+  const mode=roll<UP_JACK?'jack':roll<.04?'big':roll<.26?'win':roll<.55?'small':'lose';
+  const RNG={big:[3,12,6],win:[1.08,3,1.8],small:[.72,.99,.85],lose:[0,.72,0]};
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
+  const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
+  const SP=[1,2,3,4,5,6,7,8,9,10,77,100,111,222,333,444,555,666,777,888,999,1000,1111,1234,2222,3333,4444,5555,6666,7777,8888,9999,11111,12345,22222,33333,44444,55555,66666,77777,88888,99999,1337,420,4242].filter(x=>x<=sup&&!used.has(x));
   let pickd=null;
   if(mode==='jack'){
     /* редкие красивые номера: подбираем те, что дают крупный выигрыш (сотни TON), но не заоблачный */
-    const pool=[7,77,777,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,33333,44444,55555,66666,77777,88888,99999,12345,1337].filter(x=>x<=sup).map(mk);
+    const pool=[7,77,777,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,33333,44444,55555,66666,77777,88888,99999,12345,1337].filter(x=>x<=sup&&!used.has(x)).map(mk);
     const lo=Math.max(invested*(invested>300?4:10),150),hi=Math.max(2500,invested*40);
     const ok=pool.filter(c=>c.f>=lo&&c.f<=hi);
-    pickd=ok.length?pick(ok):pool.sort((a,b)=>b.f-a.f)[0];
+    pickd=ok.length?pick(ok):(pool.length?pool.sort((a,b)=>b.f-a.f)[0]:null);
+  }else if(mode==='big'){
+    /* крупный выигрыш — только красивые/низкие номера */
+    const pool=SP.map(mk),ok=pool.filter(c=>c.f>=invested*RNG.big[0]&&c.f<=invested*RNG.big[1]);
+    pickd=ok.length?pick(ok):(pool.length?pool.sort((a,b)=>b.f-a.f)[0]:null);
   }
   if(!pickd){
-    let best=null;
+    const rg=RNG[mode]||RNG.win;let best=null;
     for(let i=0;i<4000;i++){
-      const c=mk(genSerial(sup));
-      const good=mode==='win'?(c.f>=invested*1.08&&c.f<=invested*6):(c.f<invested*.99);
-      if(good){pickd=c;break}
-      if(!best||(mode==='win'?Math.abs(c.f-invested*1.5)<Math.abs(best.f-invested*1.5):c.f<best.f))best=c;
+      let sn=genSerial(sup),tr=0;while(used.has(sn)&&tr++<60)sn=genSerial(sup);const c=mk(sn);
+      if(c.f>=invested*rg[0]&&c.f<invested*rg[1]){pickd=c;break}
+      if(!best||Math.abs(c.f-invested*rg[2])<Math.abs(best.f-invested*rg[2]))best=c;
     }
     if(!pickd)pickd=best;
   }
