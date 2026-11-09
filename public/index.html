@@ -1056,8 +1056,8 @@ function bg(g){const b=BACKDROPS[g.bi];return `radial-gradient(circle at 50% 40%
 const IMG_OK=new Set(),IMG_URL={},IMG_PEND=new Set();let IMG_ERR=0;
 /* цепочка источников: напрямую -> через прокси (если ваша сеть блокирует Fragment) -> другой номер -> эмодзи */
 function imgCands(s,o){
-  const fb=((o-1)%300)+1,d=n=>`https://nft.fragment.com/gift/${s}-${n}.medium.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(d(n))}&w=360&q=78`;
-  return fb===o?[d(o),px(o)]:[d(o),px(o),d(fb),px(fb)];
+  const fb=((o-1)%300)+1,own=n=>`/img/${s}-${n}.jpg`,d=n=>`https://nft.fragment.com/gift/${s}-${n}.medium.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(d(n))}&w=360&q=78`;
+  return fb===o?[own(o),d(o),px(o)]:[own(o),d(o),px(o),own(fb),d(fb),px(fb)];
 }
 function imgTag(g,cls=''){
   if(UI.render!=='CDN'||g.base||!g.serial)return'';
@@ -1076,7 +1076,7 @@ function raceImg(urls,cb){
 }
 function preloadImg(s,o){
   const k=s+'-'+o;if(IMG_URL[k]||IMG_PEND.has(k))return;IMG_PEND.add(k);
-  const c=imgCands(s,o),p1=c.slice(0,2),p2=c.slice(2);
+  const c=imgCands(s,o),p1=c.slice(0,3),p2=c.slice(3);
   const ok=u=>{IMG_URL[k]=u;IMG_OK.add(u);IMG_ERR=0;IMG_PEND.delete(k);
     document.querySelectorAll(`img[data-k="${k}"]`).forEach(e=>{if(!e.getAttribute('src')){e.src=u;e.classList.add('ld');const h=e.closest('.hero');if(h)h.classList.add('hasimg')}})};
   const fail=()=>{IMG_PEND.delete(k);if(++IMG_ERR===10&&!IMG_OK.size)toast(' Картинки Fragment недоступны ни напрямую, ни через прокси. Проверьте, открывается ли nft.fragment.com в вашем браузере (возможно, нужен VPN).','bad')};
@@ -1116,7 +1116,8 @@ function sampleBd(g,cb){
     const bc=rgbHSL(C);
     IMG_BD[k]={E,C,i:bi,sm:{gh:Math.round(gh),bh:Math.round(bc.h),bs:+bc.s.toFixed(2)}};cb(IMG_BD[k]);(IMG_Q[k]||[]).forEach(f=>f(IMG_BD[k]));IMG_Q[k]=[];
   }catch(e){}};
-  im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=64&h=64&fit=cover&q=70`;
+  im.onerror=()=>{if(!im._f){im._f=1;im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=64&h=64&fit=cover&q=70`}};
+  im.src=`/img/${COLS[g.col].slug}-${g.serial}.jpg`;
 }
 /* цена должна считаться по тому фону, который реально видно на картинке */
 let _bdT=0;
@@ -1170,7 +1171,8 @@ function buildCover(g,cb){
     };
     COVER[k]={h:make(H*.39,195,true),p:make(H*.4,150,false)};cb(COVER[k]);
   }catch(e){}});
-  im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=640&q=82`;
+  im.onerror=()=>{if(!im._f){im._f=1;im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=640&q=82`}};
+  im.src=`/img/${COLS[g.col].slug}-${g.serial}.jpg`;
 }
 let _spinT=0;
 function spinGift(){return;
@@ -1490,13 +1492,17 @@ function openGift(id,just,keep){
     if(!(g.real&&g.real.backdrop)){const n=$('bd-n'),q=$('bd-p');if(n&&q){n.textContent=BACKDROPS[d.i][0];q.textContent=pct(BACKDROPS[d.i][3],SUMS.b)}}
   });
 }
+async function fragJson(slug,n){
+  for(const u of [`/img/${slug}-${n}.json`,`https://nft.fragment.com/gift/${slug}-${n}.json`]){
+    try{const r=await fetch(u,{referrerPolicy:'no-referrer'});if(r.ok)return await r.json()}catch(e){}
+  }
+  throw 0;
+}
 async function loadReal(g){
   if(g.base||g.real!==undefined||UI.render!=='CDN'||window._noJson)return;
   g.real=null;
   try{
-    const r=await fetch(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.json`,{referrerPolicy:'no-referrer'});
-    if(!r.ok)throw 0;
-    const j=await r.json(),o={};
+    const j=await fragJson(COLS[g.col].slug,g.serial),o={};
     (j.attributes||[]).forEach(a=>{const m=/^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$/.exec(String(a.value));o[String(a.trait_type||'').toLowerCase()]={v:m?m[1]:String(a.value),p:m?m[2]+'%':''}});
     if(o.model||o.backdrop||o.symbol){g.real=o;if(!$('modal').classList.contains('hidden')&&UI.openId===g.id)openGift(g.id,false,true)}
   }catch(e){if(e instanceof TypeError)window._noJson=1}
@@ -1631,8 +1637,7 @@ function renderUp(){
 function realOf(col,serial){
   if(UI.render!=='CDN'||window._noJson)return Promise.resolve(null);
   return Promise.race([
-    fetch(`https://nft.fragment.com/gift/${COLS[col].slug}-${serial}.json`,{referrerPolicy:'no-referrer'})
-      .then(r=>{if(!r.ok)throw 0;return r.json()})
+    fragJson(COLS[col].slug,serial)
       .then(j=>{const o={};(j.attributes||[]).forEach(a=>{const m=/^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$/.exec(String(a.value));o[String(a.trait_type||'').toLowerCase()]={v:m?m[1]:String(a.value),p:m?m[2]+'%':''}});return(o.model||o.backdrop||o.symbol)?o:null})
       .catch(e=>{if(e instanceof TypeError)window._noJson=1;return null}),
     new Promise(res=>setTimeout(()=>res(null),2500))

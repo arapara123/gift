@@ -411,9 +411,37 @@ async function route(req, env, url) {
   return err('Не найдено', 404);
 }
 
+/* Прокси картинок и данных подарков Fragment: браузер ходит на наш сайт, а не на nft.fragment.com
+   (у части пользователей Fragment и обычные прокси заблокированы). Хост зашит в коде, поэтому открытым прокси это не является. */
+const IMG_RE = /^\/img\/([a-z0-9]{3,30})-(\d{1,7})\.(jpg|json)$/;
+async function imgProxy(url) {
+  const m = IMG_RE.exec(url.pathname);
+  const n = m ? Number(m[2]) : 0;
+  if (!m || n < 1 || n > 1000000) return new Response('Not found', { status: 404 });
+  const jpg = m[3] === 'jpg';
+  let r;
+  try {
+    r = await fetch('https://nft.fragment.com/gift/' + m[1] + '-' + n + (jpg ? '.medium.jpg' : '.json'), {
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; PortalsGame)' },
+      cf: { cacheEverything: true, cacheTtl: 2592000 }
+    });
+  } catch (e) { return new Response('Bad gateway', { status: 502 }); }
+  if (!r.ok) return new Response('Not found', { status: r.status === 404 ? 404 : 502 });
+  return new Response(r.body, {
+    status: 200,
+    headers: {
+      'content-type': jpg ? 'image/jpeg' : 'application/json; charset=utf-8',
+      'cache-control': 'public, max-age=2592000',
+      'access-control-allow-origin': '*',
+      'x-content-type-options': 'nosniff'
+    }
+  });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+    if (url.pathname.startsWith('/img/') && req.method === 'GET') return imgProxy(url);
     if (!url.pathname.startsWith('/api/' ) && url.pathname !== '/api') {
       return env.ASSETS ? env.ASSETS.fetch(req) : new Response('Not found', { status: 404 });
     }
