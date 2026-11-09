@@ -315,11 +315,12 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 .urays{position:absolute;left:50%;top:44%;width:420px;height:420px;margin:-210px 0 0 -210px;opacity:0;pointer-events:none;background:repeating-conic-gradient(rgba(255,255,255,.2) 0 7deg,transparent 7deg 22deg);-webkit-mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);animation:urot 7s linear infinite}
 @keyframes urot{to{transform:rotate(360deg)}}
 .ugift{position:relative;z-index:3;width:96px;height:96px;border-radius:26px;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:rgba(255,255,255,.92);background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);box-shadow:0 14px 40px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.4);overflow:hidden;will-change:transform}
-.ugift.done{width:122px;height:122px;background:none;border-color:transparent;box-shadow:none;animation:upop .5s cubic-bezier(.2,1.6,.4,1)}
+.ugift.done{width:140px;height:140px;background:none;border-color:transparent;box-shadow:none;animation:upop .5s cubic-bezier(.2,1.6,.4,1)}
 @keyframes upop{from{transform:scale(.6)}to{transform:scale(1)}}
 .ugift img.uimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s}
 .ugift img.uimg.ld{opacity:1}
 .ugift img.uimg.ld+span{display:none}
+.ugift.done img.uimg{-webkit-mask-image:radial-gradient(closest-side,#000 68%,transparent 100%);mask-image:radial-gradient(closest-side,#000 68%,transparent 100%)}
 .uttl{position:relative;z-index:3;margin-top:10px;font-size:13px;font-weight:800;color:rgba(255,255,255,.92);text-shadow:0 2px 8px rgba(0,0,0,.5)}
 .uttl i{font-style:normal;animation:udot 1.2s infinite}
 .uttl i:nth-child(2){animation-delay:.2s}.uttl i:nth-child(3){animation-delay:.4s}
@@ -399,7 +400,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Номер выпадает случайно — а от номера зависят модель, фон, узор и цена. Редкие номера (#7, #777, #1111…) стоят в разы дороже, а если цвет подарка сочетается с фоном — это ещё плюс к цене. Примерно в 30% случаев апгрейд окупается и приносит прибыль, в остальных — результат стоит меньше вложенного. И совсем редко (меньше 1%) выпадает джекпот — номер, который стоит сотни TON.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Номер выпадает случайно — а от номера зависят модель, фон, узор и цена. Красивые номера (меньше 100, меньше 50, меньше 10, одинаковые цифры вроде #777 или #1111) выпадают очень-очень редко, зато стоят в разы дороже, а если цвет подарка сочетается с фоном — это ещё плюс к цене. Примерно в 30% случаев апгрейд окупается и приносит прибыль, в остальных — результат стоит меньше вложенного. И совсем редко (меньше 1%) выпадает джекпот — номер, который стоит сотни TON.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -747,13 +748,39 @@ function rareSerial(sup){
   if(Math.random()<.45)return 1+Math.floor(Math.random()*Math.min(100,sup));
   return pool.length?pick(pool):0;
 }
+/* «красивый» номер: меньше 100, одинаковые цифры, лесенка, мем, круглое число */
+function isFancy(sn){
+  const s=String(sn);
+  return sn<100||(s.length>=3&&/^(\d)\1+$/.test(s))||/^(1234|12345|123456)$/.test(s)||sn===1337||sn===420||/^[1-9]0{2,}$/.test(s);
+}
+/* обычный номер: красивые никогда не выпадают этим путём */
+function plainSerial(sup,used){
+  if(sup<=300)return Math.max(1,Math.ceil(Math.random()*sup));
+  let n,t=0;
+  do{n=Math.max(1,Math.ceil(Math.random()*sup))}while((isFancy(n)||(used&&used.has(n)))&&t++<200);
+  return n;
+}
+function repDigits(len,sup){const c=[];for(let d=1;d<=9;d++){const n=+String(d).repeat(len);if(n<=sup)c.push(n)}return c}
+/* очень редкие номера, у каждой ступени свой крошечный шанс:
+   1–9: 0.03% · 10–49: 0.08% · 50–99: 0.2% · ххх: 0.15% · хххх: 0.05% · ххххх: 0.01% */
+const RARE_TIERS=[[.0003,1,9],[.0008,10,49],[.0020,50,99],[.0015,3],[.0005,4],[.0001,5]];
+function rareRoll(sup,boost,used){
+  const r=Math.random();let acc=0;
+  for(const t of RARE_TIERS){
+    acc+=t[0]*(boost||1);
+    if(r>=acc)continue;
+    if(t.length===3){
+      const hi=Math.min(t[2],sup);if(hi<t[1])return 0;
+      const c=t[1]+Math.floor(Math.random()*(hi-t[1]+1));
+      return used&&used.has(c)?0:c;
+    }
+    const pool=repDigits(t[1],sup).filter(x=>!(used&&used.has(x)));
+    return pool.length?pick(pool):0;
+  }
+  return 0;
+}
 function genSerial(sup,boost=1){
-  const cap=Math.min(sup,100000);
-  const r=Math.random();
-  /* красивые номера теперь действительно редкие (boost>1 — на маркете, 1 — при апгрейде) */
-  if(r<.004*boost)return 1+Math.floor(Math.random()*Math.min(100,cap));
-  if(r<.01*boost){const c=[111,222,333,444,555,666,777,888,999,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,55555,77777,99999,1000,2000,5000,10000,1234,12345,4242,1001,2002,1221,12321,420,1337].filter(x=>x<=cap);if(c.length)return pick(c)}
-  return Math.max(1,Math.ceil(Math.random()*sup));
+  return rareRoll(Math.min(sup,100000),boost)||plainSerial(sup);
 }
 
 /* =================== ПОДАРКИ =================== */
@@ -1080,7 +1107,7 @@ function tick(){
     const ex=adds.find(c=>COLS[c].floor>=400&&(cnt[c]||0)>=5);
     if(ex)feed(`<b>${ex}</b>: на рынок вышла партия лотов — сейчас ${(cnt[ex]||0)+adds.filter(x=>x===ex).length} шт.`);
   }
-  if(Math.random()<.08){
+  if(Math.random()<.015){
     const c=pick(COL_NAMES),sn=rareSerial(COLS[c].supply);
     if(sn){const g=mkGift({col:c,serial:sn});g.price=marketPrice(g);g.nw=1;S.market.unshift(g);feed(`Редкий номер: <b>${c} #${sn}</b> (${serialInfo(sn,c).tags[0]||'красивый'}) за <b>${f2(g.price)}</b>`)}
   }
@@ -1296,6 +1323,16 @@ function renderUp(){
     ['r-m','r-b','r-p'].forEach(i=>{$(i+'-v').textContent='—';$(i+'-p').textContent=''});
   }
 }
+function realOf(col,serial){
+  if(UI.render!=='CDN'||window._noJson)return Promise.resolve(null);
+  return Promise.race([
+    fetch(`https://nft.fragment.com/gift/${COLS[col].slug}-${serial}.json`,{referrerPolicy:'no-referrer'})
+      .then(r=>{if(!r.ok)throw 0;return r.json()})
+      .then(j=>{const o={};(j.attributes||[]).forEach(a=>{const m=/^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$/.exec(String(a.value));o[String(a.trait_type||'').toLowerCase()]={v:m?m[1]:String(a.value),p:m?m[2]+'%':''}});return(o.model||o.backdrop||o.symbol)?o:null})
+      .catch(e=>{if(e instanceof TypeError)window._noJson=1;return null}),
+    new Promise(res=>setTimeout(()=>res(null),2500))
+  ]);
+}
 function doUpgrade(){
   if(UI.upBusy)return;
   const g=S.inv.find(x=>x.id===UI.upId&&x.base);
@@ -1304,30 +1341,22 @@ function doUpgrade(){
   if(S.ton<cost){toast(`Нужно ${f2(cost)} TON`,'bad');return}
   S.ton=+(S.ton-cost).toFixed(2);S.spent+=cost;S.vol=+(S.vol+cost).toFixed(2);UI.upBusy=true;sfx.buy();
   $('h-bal').textContent=f2(S.ton);
-  /* исход определяется броском: джекпот (0.4%) / крупный выигрыш (3.6%) / выигрыш (22%) → в плюс ~26%;
-     небольшой минус (29%) / сильный минус (45%). Диапазоны — во сколько раз результат больше вложенного */
+  /* исход определяется броском: крупный выигрыш (3.6%) / выигрыш (22%) → в плюс ~26%;
+     небольшой минус (29%) / сильный минус (45%). Диапазоны — во сколько раз результат больше вложенного.
+     Красивые номера (<100, <50, <10, одинаковые цифры) — отдельный очень редкий бросок (~0.5% суммарно) = джекпот */
   const invested=+(g.bought+cost).toFixed(2),roll=Math.random(),sup=COLS[g.col].supply;
-  const mode=roll<UP_JACK?'jack':roll<.04?'big':roll<.26?'win':roll<.55?'small':'lose';
+  const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
+  const rs=rareRoll(Math.min(sup,100000),1,used);
+  const mode=rs?'jack':roll<.036?'big':roll<.26?'win':roll<.55?'small':'lose';
   const RNG={big:[3,12,6],win:[1.08,3,1.8],small:[.72,.99,.85],lose:[0,.72,0]};
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
-  const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
-  const SP=[1,2,3,4,5,6,7,8,9,10,77,100,111,222,333,444,555,666,777,888,999,1000,1111,1234,2222,3333,4444,5555,6666,7777,8888,9999,11111,12345,22222,33333,44444,55555,66666,77777,88888,99999,1337,420,4242].filter(x=>x<=sup&&!used.has(x));
   let pickd=null;
-  if(mode==='jack'){
-    /* редкие красивые номера: подбираем те, что дают крупный выигрыш (сотни TON), но не заоблачный */
-    const pool=[7,77,777,1111,2222,3333,4444,5555,6666,7777,8888,9999,11111,22222,33333,44444,55555,66666,77777,88888,99999,12345,1337].filter(x=>x<=sup&&!used.has(x)).map(mk);
-    const lo=Math.max(invested*(invested>300?4:10),150),hi=Math.max(2500,invested*40);
-    const ok=pool.filter(c=>c.f>=lo&&c.f<=hi);
-    pickd=ok.length?pick(ok):(pool.length?pool.sort((a,b)=>b.f-a.f)[0]:null);
-  }else if(mode==='big'){
-    /* крупный выигрыш — только красивые/низкие номера */
-    const pool=SP.map(mk),ok=pool.filter(c=>c.f>=invested*RNG.big[0]&&c.f<=invested*RNG.big[1]);
-    pickd=ok.length?pick(ok):(pool.length?pool.sort((a,b)=>b.f-a.f)[0]:null);
-  }
-  if(!pickd){
+  if(mode==='jack')pickd=mk(rs);
+  else{
+    /* обычный исход: подбираем только «простые» номера — красивые сюда не попадают */
     const rg=RNG[mode]||RNG.win;let best=null;
     for(let i=0;i<4000;i++){
-      let sn=genSerial(sup),tr=0;while(used.has(sn)&&tr++<60)sn=genSerial(sup);const c=mk(sn);
+      const c=mk(plainSerial(sup,used));
       if(c.f>=invested*rg[0]&&c.f<invested*rg[1]){pickd=c;break}
       if(!best||Math.abs(c.f-invested*rg[2])<Math.abs(best.f-invested*rg[2]))best=c;
     }
@@ -1335,6 +1364,23 @@ function doUpgrade(){
   }
   const serial=pickd.sn,r=Object.assign({col:g.col,serial},pickd.tr);
   const jackpot=mode==='jack';
+  /* настоящие данные подарка с Fragment: фон снимаем с картинки, названия берём из JSON — чтобы текст совпадал с тем, что видно */
+  let rdone=UI.render!=='CDN',realAttrs=null,smp=null;
+  if(!rdone)Promise.all([
+    new Promise(res=>{sampleBd(r,d=>{smp=d;res()});setTimeout(res,3000)}),
+    realOf(r.col,r.serial).then(o=>{realAttrs=o})
+  ]).then(()=>{rdone=true});
+  const finalBi=()=>{
+    if(realAttrs&&realAttrs.backdrop){const k=BACKDROPS.findIndex(b=>b[0].toLowerCase()===realAttrs.backdrop.v.toLowerCase());if(k>=0)return k}
+    return smp?smp.i:r.bi;
+  };
+  const finalOf=k=>{
+    if(k==='r-m')return realAttrs&&realAttrs.model?{n:realAttrs.model.v,p:realAttrs.model.p||modelPct(r)}:{n:MODELS[r.mi][0],p:modelPct(r)};
+    if(k==='r-p')return realAttrs&&realAttrs.symbol?{n:realAttrs.symbol.v,p:realAttrs.symbol.p||patPct(r)}:{n:PATTERNS[r.pi][0],p:patPct(r)};
+    const i=finalBi(),nm=realAttrs&&realAttrs.backdrop?realAttrs.backdrop.v:BACKDROPS[i][0],pc=realAttrs&&realAttrs.backdrop&&realAttrs.backdrop.p?realAttrs.backdrop.p:pct(BACKDROPS[i][3],SUMS.b);
+    /* один цвет: фон сцены = настоящий фон картинки подарка */
+    return{n:nm,p:pc,bg:smp?`radial-gradient(circle at 50% 42%,rgb(${smp.C.join(',')}),rgb(${smp.E.join(',')}))`:`radial-gradient(circle at 50% 42%,${BACKDROPS[i][1]},${BACKDROPS[i][2]})`};
+  };
   /* ---------- анимация улучшения: три барабана, плавная смена фона, вращение подарка, вспышка ---------- */
   const q=id=>$(id)||document.createElement('i'),cl=(v,a,b)=>Math.max(a,Math.min(b,v)),ease=x=>1-Math.pow(1-x,3),T0=performance.now();
   const st=$('up-stage');
@@ -1355,7 +1401,9 @@ function doUpgrade(){
     if(x.bd)setBd(`radial-gradient(circle at 50% 42%,${BACKDROPS[i][1]},${BACKDROPS[i][2]})`);
   };
   const reveal=()=>{
-    Object.assign(g,{mi:r.mi,bi:r.bi,pi:r.pi,serial:r.serial,base:false,bought:+(g.bought+cost).toFixed(2)});
+    Object.assign(g,{mi:r.mi,bi:finalBi(),pi:r.pi,serial:r.serial,base:false,bought:+(g.bought+cost).toFixed(2)});
+    if(smp){g.sm=smp.sm;g.bsync=1}
+    if(realAttrs)g.real=realAttrs;
     ug.style.transform='';ug.classList.add('done');
     ug.innerHTML=imgTag(g,'uimg')+'<span>'+ini(g.col)+'</span>';
     const tt=q('uttl');tt.classList.add('res');tt.innerHTML=escH(g.col)+' <small>#'+nf(g.serial)+'</small>';
@@ -1373,10 +1421,12 @@ function doUpgrade(){
     const el=now-T0;
     reels.forEach(x=>{
       if(x.done)return;
-      if(el>=x.T){
-        x.done=true;x.i=x.fin;show(x,x.fin);
-        if(x.bd)setBd(bg(r));
-        q(x.k+'-p').textContent=x.pct();
+      if(el>=x.T&&(rdone||el>=x.T+2600)){
+        x.done=true;
+        const f=finalOf(x.k),v=q(x.k+'-v');
+        v.textContent=f.n;v.classList.remove('rl');void v.offsetWidth;v.classList.add('rl');
+        if(x.bd)setBd(f.bg);
+        q(x.k+'-p').textContent=f.p;
         const e=q(x.k);e.classList.remove('rolling');e.classList.add('lock');
         beep(520+reels.filter(y=>y.done).length*170,.14,'triangle',.13);vib(18);
         return;
@@ -1386,13 +1436,13 @@ function doUpgrade(){
         do{x.i=(x.i+1+Math.floor(Math.random()*(x.n-1)))%x.n}while(x.i===x.fin&&el<x.T-400);
         show(x,x.i);
         if(x.k==='r-m')sfx.tick();
-        const p=el/x.T;x.next=el+Math.max(x.bd?140:70,60+190*p*p);
+        const p=Math.min(1,el/x.T);x.next=el+Math.max(x.bd?140:70,60+190*p*p);
       }
     });
     const p=cl(el/TEND,0,1);
     ug.style.transform=`perspective(460px) rotateY(${(1440*ease(p)).toFixed(1)}deg) scale(${(1+.07*Math.sin(el/80)*(1-p)).toFixed(3)})`;
     rays.style.opacity=(cl(el/1400,0,1)*.9).toFixed(2);
-    if(el>=TEND+450){reveal();return}
+    if(el>=TEND+450&&reels.every(x=>x.done)){reveal();return}
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
