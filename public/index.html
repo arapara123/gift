@@ -400,7 +400,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в Telegram, результат случайный: номер выпадает наугад, а от номера зависят модель, фон, узор и цена (у каждого признака своя редкость в %). Если цвет подарка сочетается с фоном — это плюс к цене. Улучшение стоит дорого, поэтому окупается примерно каждый девятый-десятый апгрейд, и обычно это небольшой плюс (до +100% от вложенного, но не больше +2500 TON). Красивые номера (меньше 100, меньше 50, меньше 10, одинаковые цифры вроде #777) и джекпот на тысячи TON выпадают совсем-совсем редко, примерно раз на 10 000 апгрейдов.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в Telegram, результат случайный: номер выпадает наугад, а от номера зависят модель, фон, узор и цена (у каждого признака своя редкость в %). Если цвет подарка сочетается с фоном — это плюс к цене. Улучшение стоит дорого, поэтому окупается каждый пятый апгрейд (шанс 20% одинаковый у всех подарков), и обычно это небольшой плюс (до +100% от вложенного, но не больше +2500 TON). Красивые номера (меньше 100, меньше 50, меньше 10, одинаковые цифры вроде #777) и джекпот на тысячи TON выпадают совсем-совсем редко, примерно раз на 10 000 апгрейдов.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -1340,7 +1340,21 @@ function renderInv(){
 /* =================== АПГРЕЙД =================== */
 /* кубки всегда окупались — из апгрейда убраны */
 const NO_UP=new Set(['Algorithm Cup','Intelligence Cup']);
-function upCost(c){return +(S.floors[c]*UP_FEE).toFixed(2)}
+/* цена апгрейда подбирается под каждую коллекцию так, чтобы шанс окупиться был ОДИНАКОВЫМ (UP_P) у всех:
+   вложенное = значение, которое превышают ровно UP_P случайных подарков этой коллекции (в долях флора) */
+const UP_P=.20,UPQ={};
+function upMult(c){
+  if(UPQ[c])return UPQ[c];
+  const sup=COLS[c].supply,r=seeded(hash('upq:'+c)),v=[],f=S.floors[c]||COLS[c].floor;
+  for(let i=0;i<20000;i++){
+    let sn=Math.max(1,Math.ceil(r()*sup)),t=0;
+    if(sup>300)while(isFancy(sn)&&t++<60)sn=Math.max(1,Math.ceil(r()*sup));
+    const tr=traits(c,sn);v.push(fair({col:c,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})/f);
+  }
+  v.sort((a,b)=>a-b);
+  return UPQ[c]=Math.max(v[Math.floor((1-UP_P)*v.length)],1.2);
+}
+function upCost(c){return +(S.floors[c]*Math.max(upMult(c)-BASE_BUY,.5)).toFixed(2)}
 function baseCost(c){return +(S.floors[c]*BASE_BUY).toFixed(2)}
 function bases(){return S.inv.filter(g=>g.base)}
 function buyBase(c){
@@ -1392,7 +1406,7 @@ function doUpgrade(){
   $('h-bal').textContent=f2(S.ton);
   /* как в Telegram: результат не подгоняется под «нужный» исход. Номер выпадает случайно (красивые номера — отдельный шанс 0.01%),
      модель, фон и узор определяются номером по их редкости, а цена — по этим признакам.
-     Улучшение стоит дорого (×1.85 от флора вместе с обычным подарком), поэтому в плюс выходит ~каждый девятый апгрейд.
+     Цена апгрейда подобрана под каждую коллекцию так, чтобы шанс окупиться у всех был одинаковый — 20% (UP_P).
      Потолок плюса: не больше +100% вложенного и не больше +2500 TON; у джекпота потолок только защитный (+50 000) */
   const invested=+(g.bought+cost).toFixed(2),sup=COLS[g.col].supply;
   const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
