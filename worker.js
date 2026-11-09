@@ -386,44 +386,9 @@ async function route(req, env, url) {
   return err('Не найдено', 404);
 }
 
-/* прокси к nft.fragment.com: браузер забирает картинки и данные подарка с нашего же сайта,
-   поэтому не мешают блокировки, CORS и защита от «чужих» запросов.
-   /api/g/<slug>-<номер>.jpg  — картинка подарка
-   /api/g/<slug>-<номер>.json — настоящие модель, фон и узор (только attributes) */
-async function giftProxy(slug, n, ext) {
-  const base = 'https://nft.fragment.com/gift/' + slug + '-' + n;
-  const src = ext === 'jpg' ? base + '.medium.jpg' : base + '.json';
-  let r;
-  try {
-    r = await fetch(src, {
-      headers: { 'user-agent': 'Mozilla/5.0 (compatible; PortalsSim/1.0)', accept: ext === 'jpg' ? 'image/*' : 'application/json' },
-      cf: { cacheEverything: true, cacheTtl: 604800, cacheTtlByStatus: { '200-299': 604800, '404': 300, '500-599': 0 } }
-    });
-  } catch (e) { return err('Fragment недоступен', 502); }
-  if (!r.ok) return err('Не найдено', 404);
-  const hdr = ct => ({ 'content-type': ct, 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
-  if (ext === 'jpg') {
-    const ct = r.headers.get('content-type') || 'image/jpeg';
-    if (!/^image\//.test(ct)) return err('Не найдено', 404);
-    return new Response(r.body, { status: 200, headers: hdr(ct) });
-  }
-  const t = await r.text();
-  if (t.length > 60000) return err('Не найдено', 404);
-  const j = parse(t);
-  if (!j || !Array.isArray(j.attributes)) return err('Не найдено', 404);
-  const attributes = j.attributes.slice(0, 12).map(a => ({ trait_type: clean(a && a.trait_type, 40), value: clean(a && a.value, 80) }));
-  return new Response(JSON.stringify({ attributes }), { status: 200, headers: hdr('application/json; charset=utf-8') });
-}
-
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    const mg = /^\/api\/g\/([a-z0-9]{3,30})-(\d{1,7})\.(jpg|json)$/.exec(url.pathname);
-    if (mg && req.method === 'GET') {
-      const n = +mg[2];
-      if (n < 1 || n > 1000000) return err('Не найдено', 404);
-      return giftProxy(mg[1], n, mg[3]);
-    }
     if (!url.pathname.startsWith('/api/' ) && url.pathname !== '/api') {
       return env.ASSETS ? env.ASSETS.fetch(req) : new Response('Not found', { status: 404 });
     }

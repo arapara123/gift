@@ -262,6 +262,18 @@ body{background:#030409}
 .hero .hbg{filter:blur(30px) saturate(1.25)}
 .hero.hasimg .himg{width:215px;height:215px;border-radius:0;-webkit-mask-image:radial-gradient(closest-side,#000 68%,transparent 100%);mask-image:radial-gradient(closest-side,#000 68%,transparent 100%)}
 .hero.cov .hbg{display:none}
+/* нажатие на подарок: он крутится в 3D и подпрыгивает, как в Telegram */
+.hero{cursor:pointer;-webkit-user-select:none;user-select:none}
+.hero .himg,.hero .hini{will-change:transform}
+.hero.cov.spinning .himg{visibility:visible}
+.hero .himg.gspin,.hero .hini.gspin{animation:gspin 1s cubic-bezier(.25,.8,.25,1)}
+@keyframes gspin{
+  0%{transform:perspective(520px) rotateY(0) translateY(0) scale(1)}
+  18%{transform:perspective(520px) rotateY(150deg) translateY(-14px) scale(1.14)}
+  60%{transform:perspective(520px) rotateY(560deg) translateY(-6px) scale(1.1)}
+  85%{transform:perspective(520px) rotateY(700deg) translateY(2px) scale(.97)}
+  100%{transform:perspective(520px) rotateY(720deg) translateY(0) scale(1)}
+}
 /* ===== Скругления везде: без острых углов ===== */
 .hero{border-radius:0 0 30px 30px}
 #up-stage{border-radius:26px}
@@ -400,7 +412,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Чаще всего выпадает средний плюс (×1–×2.5) или средний минус (×0.55–×0.99), сильный минус (до ×0.1) встречается реже, а большие иксы (×5, ×15 и выше) — совсем редко. Номер, модель, фон и узор выпадают случайно, а от них зависит цена. Красивые номера (#777, меньше 100 и т. п.) и джекпот на тысячи TON — примерно раз на 10 000 апгрейдов.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Результат считается в TON: обычно ±1…3 TON, реже ±5…10, совсем редко +20 или −15…25 TON. Номер, модель, фон и узор выпадают случайно. Джекпот (+100…+150 TON, красивый номер вроде #777) выпадает очень-очень редко.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -871,9 +883,8 @@ function bg(g){const b=BACKDROPS[g.bi];return `radial-gradient(circle at 50% 40%
 const IMG_OK=new Set(),IMG_URL={},IMG_PEND=new Set();let IMG_ERR=0;
 /* цепочка источников: напрямую -> через прокси (если ваша сеть блокирует Fragment) -> другой номер -> эмодзи */
 function imgCands(s,o){
-  /* первым идёт наш сервер (/api/g/…): он сам берёт картинку у Fragment, поэтому блокировки и CORS не мешают */
-  const fb=((o-1)%300)+1,L=n=>`/api/g/${s}-${n}.jpg`,d=n=>`https://nft.fragment.com/gift/${s}-${n}.medium.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(d(n))}&w=360&q=78`;
-  return fb===o?[L(o),d(o),px(o)]:[L(o),d(o),px(o),L(fb),d(fb),px(fb)];
+  const fb=((o-1)%300)+1,d=n=>`https://nft.fragment.com/gift/${s}-${n}.medium.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(d(n))}&w=360&q=78`;
+  return fb===o?[d(o),px(o)]:[d(o),px(o),d(fb),px(fb)];
 }
 function imgTag(g,cls=''){
   if(UI.render!=='CDN'||g.base||!g.serial)return'';
@@ -892,7 +903,7 @@ function raceImg(urls,cb){
 }
 function preloadImg(s,o){
   const k=s+'-'+o;if(IMG_URL[k]||IMG_PEND.has(k))return;IMG_PEND.add(k);
-  const c=imgCands(s,o),p1=c.slice(0,3),p2=c.slice(3);
+  const c=imgCands(s,o),p1=c.slice(0,2),p2=c.slice(2);
   const ok=u=>{IMG_URL[k]=u;IMG_OK.add(u);IMG_ERR=0;IMG_PEND.delete(k);
     document.querySelectorAll(`img[data-k="${k}"]`).forEach(e=>{if(!e.getAttribute('src')){e.src=u;e.classList.add('ld');const h=e.closest('.hero');if(h)h.classList.add('hasimg')}})};
   const fail=()=>{IMG_PEND.delete(k);if(++IMG_ERR===10&&!IMG_OK.size)toast(' Картинки Fragment недоступны ни напрямую, ни через прокси. Проверьте, открывается ли nft.fragment.com в вашем браузере (возможно, нужен VPN).','bad')};
@@ -932,8 +943,7 @@ function sampleBd(g,cb){
     const bc=rgbHSL(C);
     IMG_BD[k]={E,C,i:bi,sm:{gh:Math.round(gh),bh:Math.round(bc.h),bs:+bc.s.toFixed(2)}};cb(IMG_BD[k]);(IMG_Q[k]||[]).forEach(f=>f(IMG_BD[k]));IMG_Q[k]=[];
   }catch(e){}};
-  im.onerror=()=>{if(im._f)return;im._f=1;im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=64&h=64&fit=cover&q=70`};
-  im.src=`/api/g/${COLS[g.col].slug}-${g.serial}.jpg`;
+  im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=64&h=64&fit=cover&q=70`;
 }
 /* цена должна считаться по тому фону, который реально видно на картинке */
 let _bdT=0;
@@ -987,8 +997,22 @@ function buildCover(g,cb){
     };
     COVER[k]={h:make(H*.39,195,true),p:make(H*.4,150,false)};cb(COVER[k]);
   }catch(e){}});
-  im.onerror=()=>{if(im._f)return;im._f=1;im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=640&q=82`};
-  im.src=`/api/g/${COLS[g.col].slug}-${g.serial}.jpg`;
+  im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=640&q=82`;
+}
+let _spinT=0;
+function spinGift(){
+  const h=$('sheet').querySelector('.hero');if(!h)return;
+  const els=[...h.querySelectorAll('.himg,.hini')];
+  /* если подарок «впечатан» в фон обложки, на время вращения показываем фон без подарка и сам подарок отдельно */
+  const g=S.inv.find(x=>x.id===UI.openId)||S.market.find(x=>x.id===UI.openId)||(UI.fg||[]).find(x=>x.id===UI.openId),cu=g&&COVER[bdKey(g)];
+  if(h.classList.contains('cov')&&cu){h.style.background=`url(${cu.p}) center/cover`;h.classList.add('spinning')}
+  els.forEach(e=>{e.classList.remove('gspin');void e.offsetWidth;e.classList.add('gspin')});
+  clearTimeout(_spinT);
+  _spinT=setTimeout(()=>{
+    els.forEach(e=>e.classList.remove('gspin'));
+    if(h.classList.contains('spinning')&&cu){h.style.background=`url(${cu.h}) center/cover`;h.classList.remove('spinning')}
+  },1020);
+  vib(18);beep(520,.07,'triangle',.08);beep(780,.1,'triangle',.08,.08);
 }
 function applyHeroCover(g){const h=$('sheet').querySelector('.hero'),u=COVER[bdKey(g)];if(h&&u&&UI.openId===g.id){h.style.background=`url(${u.h}) center/cover`;h.classList.add('cov')}}
 function artInner(g){return patternGrid(PATTERNS[g.pi][1])+`<div class="emo">${ini(g.col)}</div>`+imgTag(g)}
@@ -1244,7 +1268,7 @@ function openGift(id,just,keep){
   }
   const mName=R.model?R.model.v:MODELS[g.mi][0];
   const bdc=IMG_BD[bdKey(g)],bdI=bdc?bdc.i:g.bi;
-  $('sheet').innerHTML=`<div class="hero" style="background:${heroBg(g)}">${imgTag(g,'hbg')}<div class="hini" style="background:${bg(g)}">${ini(g.col)}</div>${imgTag(g,'himg')}<button class="x" onclick="closeModal()">✕</button>
+  $('sheet').innerHTML=`<div class="hero" style="background:${heroBg(g)}" onclick="if(!event.target.closest('.x'))spinGift()">${imgTag(g,'hbg')}<div class="hini" style="background:${bg(g)}">${ini(g.col)}</div>${imgTag(g,'himg')}<button class="x" onclick="closeModal()">✕</button>
     <div class="ttl"><div style="font-size:21px;font-weight:900">${g.col} <span style="font-size:14px;font-weight:700;opacity:.8">#${nf(g.serial)}</span></div><div style="font-size:14px;opacity:.9;margin-top:2px">${mName}</div></div></div>
   <div class="sbody">
   <div class="table">
@@ -1275,7 +1299,7 @@ async function loadReal(g){
   if(g.base||g.real!==undefined||UI.render!=='CDN'||window._noJson)return;
   g.real=null;
   try{
-    const r=await fetch(`/api/g/${COLS[g.col].slug}-${g.serial}.json`);
+    const r=await fetch(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.json`,{referrerPolicy:'no-referrer'});
     if(!r.ok)throw 0;
     const j=await r.json(),o={};
     (j.attributes||[]).forEach(a=>{const m=/^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$/.exec(String(a.value));o[String(a.trait_type||'').toLowerCase()]={v:m?m[1]:String(a.value),p:m?m[2]+'%':''}});
@@ -1359,14 +1383,24 @@ function upMult(c){
 }
 /* «кейс»: 30% — плюс, 70% — минус. Каждая строка: [шанс, мин. множитель, макс. множитель] от вложенного.
    Чаще всего средний плюс (×1–×2.5) и средний минус (×0.55–×0.99), а большие иксы всё реже. */
+/* экономика в абсолютных TON: результат апгрейда — это «плюс/минус N TON» к вложенному.
+   [шанс, знак, от, до, джекпот]. Плюс — 30%, минус — 70%. Обычно ±1…3 TON, реже до ±10, совсем редко +20…+25,
+   а джекпот (+100…+150 TON, красивый номер) — примерно раз на 3000 апгрейдов. */
 const UP_TIERS=[
-  [.185,1.08,1.5],[.075,1.5,2.5],[.034,2.5,5],[.0055,5,15],[.0005,15,50],   /* плюс: 30% */
-  [.25,.8,.99],[.25,.55,.8],[.15,.3,.55],[.05,.1,.3]                         /* минус: 70% */
+  [.2,1,1,3],[.06,1,3,5],[.03,1,5,10],[.0085,1,10,20],[.0012,1,20,25],[.0003,1,100,150,1],   /* плюс: 30% */
+  [.45,-1,1,3],[.15,-1,3,5],[.08,-1,5,10],[.019,-1,10,15],[.001,-1,15,25]                    /* минус: 70% */
 ];
-function rollUpMult(){
+function rollUp(invested){
   let r=Math.random();
-  for(const t of UP_TIERS){if(r<t[0])return t[1]+Math.random()*(t[2]-t[1]);r-=t[0]}
-  return .9;
+  for(const t of UP_TIERS){
+    if(r<t[0]){
+      const x=t[2]+Math.random()*(t[3]-t[2]);
+      /* минус не может съесть больше, чем вложено (оставляем минимум 0.5 TON) */
+      return{jp:!!t[4],target:+Math.max(.5,invested+t[1]*x).toFixed(2)};
+    }
+    r-=t[0];
+  }
+  return{jp:false,target:+Math.max(.5,invested-1).toFixed(2)};
 }
 function upCost(c){return +(S.floors[c]*Math.max(upMult(c)-BASE_BUY,.5)).toFixed(2)}
 function baseCost(c){return +(S.floors[c]*BASE_BUY).toFixed(2)}
@@ -1402,7 +1436,7 @@ function renderUp(){
 function realOf(col,serial){
   if(UI.render!=='CDN'||window._noJson)return Promise.resolve(null);
   return Promise.race([
-    fetch(`/api/g/${COLS[col].slug}-${serial}.json`)
+    fetch(`https://nft.fragment.com/gift/${COLS[col].slug}-${serial}.json`,{referrerPolicy:'no-referrer'})
       .then(r=>{if(!r.ok)throw 0;return r.json()})
       .then(j=>{const o={};(j.attributes||[]).forEach(a=>{const m=/^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$/.exec(String(a.value));o[String(a.trait_type||'').toLowerCase()]={v:m?m[1]:String(a.value),p:m?m[2]+'%':''}});return(o.model||o.backdrop||o.symbol)?o:null})
       .catch(e=>{if(e instanceof TypeError)window._noJson=1;return null}),
@@ -1424,15 +1458,15 @@ function doUpgrade(){
      Потолок плюса: не больше +100% вложенного и не больше +2500 TON; у джекпота потолок только защитный (+50 000) */
   const invested=+(g.bought+cost).toFixed(2),sup=COLS[g.col].supply;
   const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
-  const JACK_P=.0001; /* джекпот с красивым номером: примерно раз на 10 000 апгрейдов */
-  const rs=Math.random()<JACK_P?rareForce(Math.min(sup,100000),used):0;
+  const roll=rollUp(invested);
+  const rs=roll.jp?rareForce(Math.min(sup,100000),used):0; /* джекпот: красивый номер */
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
   /* бросаем «кейс»: сначала выпадает множитель от вложенного (30% плюс / 70% минус),
      затем выбирается случайный номер, цена которого ближе всего к цели; недостающее добирает vmul */
   let pickd,vcapV,vmulV=1;
-  if(rs){pickd=mk(rs);vcapV=+(invested+50000).toFixed(2)}
+  if(rs){pickd=mk(rs);vcapV=roll.target}
   else{
-    const target=+Math.max(.5,Math.min(invested*rollUpMult(),invested+50000)).toFixed(2);
+    const target=roll.target;
     let best=null;
     for(let i=0;i<250;i++){const c=mk(plainSerial(sup,used));if(!best||Math.abs(Math.log(c.f/target))<Math.abs(Math.log(best.f/target)))best=c}
     pickd=best;vcapV=target;
@@ -1482,13 +1516,10 @@ function doUpgrade(){
     if(realAttrs)g.real=realAttrs;
     /* потолок оценки подарка: ограничивает размер плюса */
     /* фон мог смениться на реальный с картинки — подгоняем цену под цель уже с итоговыми признаками */
-    if(jackpot){g.vcap=vcapV}
-    else{
-      delete g.vmul;g.vcap=0;
-      const raw=fair(g);
-      if(raw>0&&raw<vcapV)g.vmul=+(vcapV/raw).toFixed(4);
-      g.vcap=vcapV;
-    }
+    delete g.vmul;g.vcap=0;
+    const raw=fair(g);
+    if(raw>0&&raw<vcapV)g.vmul=+(vcapV/raw).toFixed(4);
+    g.vcap=vcapV;
     ug.style.transform='';ug.classList.add('done');
     ug.innerHTML=imgTag(g,'uimg')+'<span>'+ini(g.col)+'</span>';
     const tt=q('uttl');tt.classList.add('res');tt.innerHTML=escH(g.col)+' <small>#'+nf(g.serial)+'</small>';
