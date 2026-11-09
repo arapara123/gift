@@ -183,16 +183,8 @@ async function save(req, env, user) {
 
   /* лёгкая защита от накрутки: прирост баланса/прибыли ограничен прошедшим временем.
      Выданные админом TON добавляются к допустимому приросту баланса (но не прибыли и не оборота) */
-  let pd = null;
-  if (prev) { try { pd = JSON.parse(prev.data); } catch (e) {} }
-  if (pd && Number.isFinite(pd.ton)) {
-    const dt = Math.max(0, (now - prev.updated) / 1000), allow = Math.min(8000 + dt * 5, 100000);
-    if (d.ton - pd.ton > allow + tonCredit || num(d.profit, -1e9, 1e9) - num(pd.profit, -1e9, 1e9) > allow ||
-        num(d.vol, 0, 1e12) - num(pd.vol, 0, 1e12) > allow * 3 || num(d.flips, 0, 1e9) - num(pd.flips, 0, 1e9) > 40 + dt)
-      return err('Сервер отклонил сохранение: слишком резкий рост баланса', 409);
-  } else if (d.ton > 20000 + tonCredit || num(d.profit, -1e9, 1e9) > 20000) {
-    return err('Сервер отклонил сохранение: слишком большой стартовый баланс', 409);
-  }
+  /* ЗАЩИТА ОТ НАКРУТКИ ОТКЛЮЧЕНА: рост баланса, прибыли и оборота больше не ограничивается.
+     Остались только базовые проверки выше (баланс от 0 до 1 000 000 TON). */
 
   const profile = JSON.stringify(buildProfile(d, b.worth));
   const stmts = [env.DB.prepare(
