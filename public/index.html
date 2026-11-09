@@ -1230,16 +1230,40 @@ function instantSell(id){
   completeSale(g,pay,fair(g)*.9,'Мгновенная скупка');
   closeModal();
 }
-function completeSale(g,net,gross,who){
+function completeSale(g,net,gross,who,quiet){
   const pl=+(net-g.bought).toFixed(2);
   S.inv=S.inv.filter(x=>x.id!==g.id);S.market=S.market.filter(x=>x.id!==g.id);S.offers=S.offers.filter(o=>o.gid!==g.id);
   S.pinned=S.pinned.filter(x=>x!==g.id);if(S.worn===g.id)S.worn=null;
   S.ton=+(S.ton+net).toFixed(2);if(!g.gr){S.profit=+(S.profit+pl).toFixed(2);S.flips++;if(pl>S.best)S.best=pl}S.vol=+(S.vol+gross).toFixed(2);
-  sfx.sale();vib([20,40,20]);if(pl>0)confetti(pl>20?110:55);
+  if(!quiet){sfx.sale();vib([20,40,20]);if(pl>0)confetti(pl>20?110:55)}
   log(`Продажа ${g.col} #${g.serial}`,'+'+f2(net),'emerald');
   feed(` ${who}: <b>${g.col} #${g.serial}</b> за <b>${f2(gross)}</b> TON (${pl>=0?'+':''}${f2(pl)})`);
-  toast(` Продано ${g.col} #${g.serial}: ${pl>=0?'+':''}${f2(pl)} TON чистыми`,pl>=0?'ok':'bad');
-  refresh();
+  if(!quiet){toast(` Продано ${g.col} #${g.serial}: ${pl>=0?'+':''}${f2(pl)} TON чистыми`,pl>=0?'ok':'bad');refresh()}
+}
+/* Продажи, пока вас не было в игре: при входе/возвращении «проматываем» прошедшее время.
+   Для каждого выставленного подарка шанс продажи за один тик берётся так же, как в tick(),
+   а за N пропущенных тиков он считается по формуле 1-(1-p)^N. Максимум — 12 часов. */
+const OFFLINE_MAX_TICKS=14400; /* 12 ч при тике 3 с */
+function offlineCatchUp(){
+  if(!S)return;
+  const now=Date.now(),last=+S.lastSeen||now;S.lastSeen=now;
+  const el=now-last;if(el<30000)return;
+  const n=Math.min(Math.floor(el/3000),OFFLINE_MAX_TICKS);
+  const sold=[];let sum=0;
+  for(const g of S.inv.filter(x=>x.listed&&!x.base).sort(()=>Math.random()-.5)){
+    if(!S.inv.includes(g))continue;
+    const p=chanceFor(g.price/fair(g));
+    if(p<=0||Math.random()>=1-Math.pow(1-p,n))continue;
+    const net=+(g.price*(1-feeRate())).toFixed(2),b=pick(BOTS)[0];
+    S.cashback=+(S.cashback+g.price*feeRate()*.2).toFixed(2);
+    completeSale(g,net,g.price,b,true);
+    sold.push(g);sum+=net;
+  }
+  if(!sold.length){save();return}
+  sfx.sale();vib([20,40,20]);confetti(70);
+  const mins=Math.round(el/60000),away=mins>=120?Math.round(mins/60)+' ч':mins+' мин';
+  toast(` Пока вас не было (${away}) продано: ${sold.length} шт. · +${f2(sum)} TON`,'ok');
+  save();refresh();pushCloud(true);
 }
 function claimCashback(){
   if(S.cashback<.01){toast('Кэшбэк пока пуст — он копится с покупок');return}
@@ -1332,7 +1356,7 @@ function tick(){
     if(g.price<fair(g)*.9)feed(` ${g.seller} выставил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
     else if(si.m>=2)feed(` Редкий номер: <b>${g.col} #${g.serial}</b> (${si.tags[0]}) за <b>${f2(g.price)}</b>`);
   }
-  save();refresh();
+  if(!document.hidden)S.lastSeen=Date.now();save();refresh();
 }
 
 /* =================== ФИЛЬТРЫ =================== */
@@ -1909,7 +1933,7 @@ async function pushCloud(force){
 }
 function applyCloud(d){
   S=d;patchState();if(ACC)S.prof.user=ACC;refillMarket();
-  LAST_SIG=sigOf();LAST_PUSH=Date.now();save();refresh();
+  LAST_SIG=sigOf();LAST_PUSH=Date.now();save();refresh();offlineCatchUp();
 }
 async function syncDown(){
   if(!TOKEN)return;
@@ -2195,6 +2219,8 @@ function refresh(){
 if(!load()){S=freshState();seedMarket();save()}else patchState();
 $('imgb').style.opacity=UI.render==='CDN'?1:.45;
 go('market');
+offlineCatchUp();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)offlineCatchUp()});
 /* перетаскиваемый ползунок цены */
 (function(){
   const trk=$('trk');let drag=false;
