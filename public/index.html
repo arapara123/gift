@@ -586,7 +586,9 @@ html,body{background:#0b0c0d;-webkit-font-smoothing:antialiased;-moz-osx-font-sm
 
 <!-- OFFERS -->
 <main id="v-offers" class="scroll hidden">
-  <div class="h2" style="margin-top:10px"><span>Предложения от покупателей</span><span class="tag t-amber" id="off-cnt">0</span></div>
+  <div class="h2" style="margin-top:10px"><span>Предложения от игроков</span><span class="tag t-amber" id="tr-cnt">0</span></div>
+  <div id="trades"></div>
+  <div class="h2"><span>Предложения от покупателей</span><span class="tag t-amber" id="off-cnt">0</span></div>
   <div id="offers"></div>
   <div class="h2"><span>Флор коллекций</span></div>
   <div id="floors"></div>
@@ -1479,7 +1481,7 @@ function openGift(id,just,keep){
       ${g.listed?`<button class="buy red" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="buy ghost" style="flex:1" onclick="instantSell(${g.id})">Скупка ${f2(f*.9*(1-feeRate()))}</button>`}
       <button class="buy" style="flex:1.4" onclick="listGift(${g.id})">${g.listed?'Обновить цену':'Выставить'}</button>
     </div>
-    <button class="buy ghost" style="margin-top:8px" onclick="openTransfer(${g.id})">Передать другу</button>`;
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><button class="buy ghost" onclick="openTradeOffer(${g.id})">Продать другу</button><button class="buy ghost" onclick="openTransfer(${g.id})">Передать</button></div>`;
   }else if(g.foreign){
     action=`<div class="panel row" style="justify-content:space-between"><div><div class="mut">Оценка</div><div class="big">${f2(f)} ${TON_SVG}</div></div><div class="mut" style="text-align:right">Владелец<br><b style="color:#fff">${g.seller}</b></div></div><button class="buy ghost" onclick="openUser('${g.owner}')">← К профилю</button>`;
   }else{
@@ -1800,7 +1802,96 @@ function spark(arr,up){
   const pts=arr.map((v,i)=>`${(i/(arr.length-1)*w).toFixed(1)},${(h-(v-mn)/d*(h-4)-2).toFixed(1)}`).join(' ');
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="${up?'#34d27b':'#ff5d73'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/></svg>`;
 }
+function tradeGift(t){const tr=traits(t.col,t.serial);return{col:t.col,serial:t.serial,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false}}
+function renderTrades(){
+  const T=UI.trades||{in:[],out:[]};$('tr-cnt').textContent=T.in.length;
+  const row=(t,inc)=>{
+    const g=tradeGift(t),f=fair(g),d=f>0?Math.round((f-t.price)/f*100):0;
+    return `<div class="panel row" style="gap:10px"><div class="art mini" style="width:54px;flex:none;background:${bg(g)}">${artInner(g)}</div>
+    <div style="flex:1;min-width:0"><b style="font-size:13px">${escH(t.col)} #${nf(t.serial)}</b><div class="mut">${inc?'от':'для'} @${escH(t.other)} · оценка ≈ ${f2(f)}</div>
+    <div style="font-size:13px"><b>${f2(t.price)}</b> TON ${inc?`<span class="${d>=0?'green':'red'}" style="font-weight:700">(${d>=0?'выгода '+d:'дороже на '+(-d)}%)</span>`:''}</div></div>
+    ${inc?`<button class="buy green" style="width:auto;padding:0 12px" onclick="tradeAccept(${t.id})">Купить</button><button class="buy ghost" style="width:38px" onclick="tradeClose(${t.id})">✕</button>`
+         :`<button class="buy ghost" style="width:auto;padding:0 12px" onclick="tradeClose(${t.id})">Отменить</button>`}</div>`;
+  };
+  setHTML($('trades'),(T.in.length?T.in.map(t=>row(t,1)).join(''):'<div class="panel mut" style="text-align:center">Предложений от игроков нет. Друзья могут предложить вам подарок — он появится здесь.</div>')
+    +(T.out.length?'<div class="sec-t" style="margin-top:6px">Ваши предложения</div>'+T.out.map(t=>row(t,0)).join(''):''));
+}
+let _trBusy2=false;
+async function pollTrades(){
+  if(!TOKEN||!CLOUD_READY||document.hidden||_trBusy2)return;
+  _trBusy2=true;
+  try{
+    const r=await api('/trade/list'),old=new Set(((UI.trades&&UI.trades.in)||[]).map(t=>t.id));
+    const fresh=UI.trades?r.in.filter(t=>!old.has(t.id)):[];
+    UI.trades={in:r.in,out:r.out};
+    fresh.forEach(t=>{sfx.offer();vib(40);toast(` @${escH(t.other)} хочет продать вам ${escH(t.col)} #${nf(t.serial)} за ${f2(t.price)} TON`)});
+    const d=$('d-off'),n=S.offers.length+r.in.length;d.textContent=n;d.classList.toggle('hidden',!n);
+    if(UI.tab==='offers')renderTrades();
+  }catch(e){if(e.status===401)logoutLocal(true);else if(e.status===403)bannedOut(e.message)}
+  _trBusy2=false;
+}
+async function tradeClose(id){
+  try{await api('/trade/close',{method:'POST',body:{id}});sfx.click()}catch(e){toast(escH(e.message||'Ошибка'),'bad')}
+  if(UI.trades){UI.trades.in=UI.trades.in.filter(t=>t.id!==id);UI.trades.out=UI.trades.out.filter(t=>t.id!==id)}
+  renderTrades();refresh();
+}
+async function tradeAccept(id){
+  if(UI.trBusy)return;
+  const t=((UI.trades&&UI.trades.in)||[]).find(x=>x.id===id);if(!t)return;
+  if(S.ton<t.price){toast(`Не хватает ${f2(t.price-S.ton)} TON`,'bad');return}
+  if(!confirm(`Купить ${t.col} #${t.serial} у @${t.other} за ${f2(t.price)} TON?`))return;
+  UI.trBusy=true;
+  try{
+    if(CLOUD_READY)await pushCloud(true);
+    await api('/trade/accept',{method:'POST',body:{id}});
+  }catch(e){
+    UI.trBusy=false;
+    if(e.status===401){logoutLocal(true);return}
+    toast(escH(e.message||'Ошибка'),'bad');
+    if(UI.trades)UI.trades.in=UI.trades.in.filter(x=>x.id!==id||e.status!==404);
+    pollTrades();renderTrades();return;
+  }
+  UI.trBusy=false;
+  UI.trades.in=UI.trades.in.filter(x=>x.id!==id);
+  await pullGrants();renderTrades();refresh();
+}
+function openTradeOffer(id){
+  const g=S.inv.find(x=>x.id===id&&!x.base);if(!g)return;
+  if(!TOKEN){toast('Чтобы продавать друзьям, войдите в аккаунт','bad');return}
+  UI.xfer=id;sfx.click();
+  const fr=S.friends||[],d=Math.max(+(fair(g)*1.0).toFixed(2),0.5);
+  $('sheet').innerHTML=`<div class="sbody"><div class="row" style="justify-content:space-between;margin-bottom:12px"><b style="font-size:18px">Продать другу</b><button class="x" style="position:static" onclick="openGift(${id},false,true)">✕</button></div>
+  <div class="panel"><b>${escH(g.col)} #${nf(g.serial)}</b><div class="mut" style="margin-top:4px;line-height:1.45">Игроку придёт предложение купить этот подарок за вашу цену. Если он согласится и у него хватит TON — вы получите всю сумму без комиссии. Предложение действует 24 часа. Подарок остаётся у вас, пока его не купят.</div></div>
+  <div class="mut" style="margin:0 0 6px">Цена, TON (оценка ≈ ${f2(fair(g))})</div>
+  <input id="t-price" class="input" type="number" step="0.1" min="0" value="${d}" style="margin-bottom:10px">
+  <div class="mut" style="margin:0 0 6px">Юзернейм игрока</div>
+  <input id="t-user" class="input" maxlength="20" placeholder="@юзернейм" autocapitalize="off" autocomplete="off" spellcheck="false" style="margin-bottom:10px">
+  <button class="buy" onclick="sendTradeOffer($('t-user').value)">Отправить предложение</button>
+  ${fr.length?`<div class="sec-t" style="margin-top:16px">Ваши друзья</div>`+fr.map(f=>`<div class="urow" onclick="sendTradeOffer('${escH(f.u)}')"><span class="row" style="gap:10px;min-width:0"><span class="uav">${escH(f.u[0].toUpperCase())}</span><b style="font-size:14px">@${escH(f.u)}</b></span><span class="blue" style="font-size:18px">›</span></div>`).join(''):'<p class="mut" style="margin-top:14px;text-align:center">Добавьте друзей во вкладке «Профиль» через поиск по @юзернейму — они появятся здесь.</p>'}</div>`;
+  $('modal').classList.remove('hidden');
+}
+async function sendTradeOffer(name){
+  const g=S.inv.find(x=>x.id===UI.xfer&&!x.base);if(!g||UI.xferBusy)return;
+  name=String(name||'').trim().replace(/^@/,'');
+  const price=Math.round(parseFloat($('t-price').value)*100)/100;
+  if(!/^[A-Za-z0-9_]{3,20}$/.test(name)){toast('Введите юзернейм игрока','bad');return}
+  if(name===ACC){toast('Нельзя продать подарок самому себе','bad');return}
+  if(!(price>=0)){toast('Введите цену от 0 TON','bad');return}
+  UI.xferBusy=true;
+  try{
+    if(CLOUD_READY)await pushCloud(true);
+    await api('/trade/offer',{method:'POST',body:{user:name,col:g.col,serial:g.serial,price}});
+  }catch(e){
+    UI.xferBusy=false;
+    if(e.status===401){logoutLocal(true);return}
+    toast(escH(e.message||'Ошибка'),'bad');return;
+  }
+  UI.xferBusy=false;sfx.sale();closeModal();
+  toast(` Предложение отправлено @${name}: ${g.col} #${g.serial} за ${f2(price)} TON`,'ok');
+  _trBusy2=false;pollTrades();
+}
 function renderOffers(){
+  renderTrades();
   $('off-cnt').textContent=S.offers.length;
   setHTML($('offers'),S.offers.length?S.offers.map(o=>{const g=S.inv.find(x=>x.id===o.gid);if(!g)return'';const net=o.price*(1-feeRate())-g.bought;const left=Math.max(0,Math.round((o.exp-Date.now())/1000));
     return `<div class="panel row" style="gap:10px"><div style="width:42px;height:42px;border-radius:14px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:20px">${o.av}</div>
@@ -1942,7 +2033,7 @@ async function syncDown(){
     const c=await api('/load');
     if(c.data&&validState(c.data))applyCloud(c.data);
     if(c.grants&&c.grants.length)setTimeout(()=>applyGrants(c.grants),0);
-    CLOUD_READY=true;
+    CLOUD_READY=true;setTimeout(pollTrades,500);
     if(!(c.data&&validState(c.data)))pushCloud(true);else setSync(1);
   }catch(e){if(e.status===401)logoutLocal(true);else if(e.status===403)bannedOut(e.message);else setSync(0)}
 }
@@ -2084,6 +2175,23 @@ function applyGrants(list){
       const a=Number(gr.amount);if(!Number.isFinite(a)||!a)continue;
       S.ton=+Math.max(0,S.ton+a).toFixed(2);ton+=a;
       log('От администратора',(a>=0?'+':'')+f2(a),a>=0?'emerald':'rose');
+    }else if(gr.kind==='trade-sale'){
+      const a=Math.max(0,Number(gr.amount)||0),i=S.inv.findIndex(x=>!x.base&&x.col===gr.col&&Number(x.serial)===Number(gr.serial));
+      if(i>=0){const id=S.inv[i].id;S.inv.splice(i,1);S.market=S.market.filter(x=>x.id!==id);S.offers=S.offers.filter(o=>o.gid!==id);S.pinned=S.pinned.filter(x=>x!==id);if(S.worn===id)S.worn=null}
+      S.ton=+(S.ton+a).toFixed(2);
+      const to=String(gr.to||'').replace(/[^A-Za-z0-9_]/g,'');
+      log(`Продажа ${gr.col} #${gr.serial} → @${to}`,'+'+f2(a),'emerald');
+      recv.push('@'+to+' купил(а) ваш '+gr.col+' #'+gr.serial+' за '+f2(a)+' TON');
+    }else if(gr.kind==='trade-buy'){
+      if(!COLS[gr.col])continue;
+      const a=Math.max(0,Number(gr.amount)||0),sn=Math.max(1,Math.min(1000000,Math.floor(Number(gr.serial))||1));
+      S.ton=+Math.max(0,S.ton-a).toFixed(2);
+      const g=mkGift({col:gr.col,serial:sn,mine:true,seller:'me'});g.nw=0;g.gr=1;
+      if(gr.vmul>0)g.vmul=Math.min(1000,Number(gr.vmul));if(gr.vcap>0)g.vcap=Math.min(1e7,Number(gr.vcap));
+      g.bought=+a.toFixed(2);S.inv.unshift(g);
+      const who=String(gr.from||'').replace(/[^A-Za-z0-9_]/g,'');
+      log(`Покупка ${gr.col} #${sn} у @${who}`,'-'+f2(a),'rose');
+      recv.push('Куплено у @'+who+': '+gr.col+' #'+sn+' за '+f2(a)+' TON');
     }else if(gr.kind==='gift'){
       if(!COLS[gr.col])continue;
       const sn=Math.max(0,Math.min(1000000,Math.floor(Number(gr.serial))||0));let g;
@@ -2182,6 +2290,7 @@ async function initAuth(){
 }
 setInterval(()=>{if(TOKEN&&!CLOUD_READY)syncDown()},10000);
 setInterval(()=>pullGrants(),20000);
+setInterval(()=>pollTrades(),15000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pushCloud()});
 
 /* =================== НАВИГАЦИЯ / ОБНОВЛЕНИЕ =================== */
@@ -2207,7 +2316,7 @@ function importSave(inp){
 function refresh(){
   saveSoon();
   $('h-bal').textContent=f2(S.ton);$('online').textContent=online.toLocaleString('ru-RU');
-  const d=$('d-off');d.textContent=S.offers.length;d.classList.toggle('hidden',!S.offers.length);
+  const d=$('d-off'),nOf=S.offers.length+((UI.trades&&UI.trades.in)||[]).length;d.textContent=nOf;d.classList.toggle('hidden',!nOf);
   updLive();
   if(UI.tab==='market')renderMarket();
   else if(UI.tab==='inv')renderInv();
