@@ -400,7 +400,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Номер выпадает случайно — а от номера зависят модель, фон, узор и цена. Красивые номера (меньше 100, меньше 50, меньше 10, одинаковые цифры вроде #777 или #1111) выпадают очень-очень редко, зато стоят в разы дороже, а если цвет подарка сочетается с фоном — это ещё плюс к цене. Примерно в 30% случаев апгрейд окупается и приносит прибыль, в остальных — результат стоит меньше вложенного. И совсем редко (меньше 1%) выпадает джекпот — номер, который стоит сотни TON.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Номер выпадает случайно — а от номера зависят модель, фон, узор и цена. Красивые номера (меньше 100, меньше 50, меньше 10, одинаковые цифры вроде #777 или #1111) выпадают очень-очень редко, зато стоят в разы дороже, а если цвет подарка сочетается с фоном — это ещё плюс к цене. Окупается и приносит прибыль примерно каждый пятый-шестой апгрейд, и чаще это небольшой плюс. Сильный плюс выпадает очень редко, а в остальных случаях результат стоит меньше вложенного. Совсем-совсем редко (доли процента) выпадает джекпот с красивым номером.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -762,8 +762,8 @@ function plainSerial(sup,used){
 }
 function repDigits(len,sup){const c=[];for(let d=1;d<=9;d++){const n=+String(d).repeat(len);if(n<=sup)c.push(n)}return c}
 /* очень редкие номера, у каждой ступени свой крошечный шанс:
-   1–9: 0.03% · 10–49: 0.08% · 50–99: 0.2% · ххх: 0.15% · хххх: 0.05% · ххххх: 0.01% */
-const RARE_TIERS=[[.0003,1,9],[.0008,10,49],[.0020,50,99],[.0015,3],[.0005,4],[.0001,5]];
+   1–9: 0.01% · 10–49: 0.03% · 50–99: 0.08% · ххх: 0.06% · хххх: 0.02% · ххххх: 0.005% */
+const RARE_TIERS=[[.0001,1,9],[.0003,10,49],[.0008,50,99],[.0006,3],[.0002,4],[.00005,5]];
 function rareRoll(sup,boost,used){
   const r=Math.random();let acc=0;
   for(const t of RARE_TIERS){
@@ -1378,14 +1378,18 @@ function doUpgrade(){
   if(S.ton<cost){toast(`Нужно ${f2(cost)} TON`,'bad');return}
   S.ton=+(S.ton-cost).toFixed(2);S.spent+=cost;S.vol=+(S.vol+cost).toFixed(2);UI.upBusy=true;sfx.buy();
   $('h-bal').textContent=f2(S.ton);
-  /* исход определяется броском: крупный выигрыш (3.6%) / выигрыш (22%) → в плюс ~26%;
-     небольшой минус (29%) / сильный минус (45%). Диапазоны — во сколько раз результат больше вложенного.
-     Красивые номера (<100, <50, <10, одинаковые цифры) — отдельный очень редкий бросок (~0.5% суммарно) = джекпот */
+  /* исход определяется броском (в плюс ~18%, в среднем игра чуть в минус):
+     крупный выигрыш 0.5% (х3–6) / хороший 2.8% (х1.8–3) / небольшой плюс 15% (х1.05–1.8);
+     небольшой минус 28% / минус ~54%. Диапазоны — во сколько раз результат больше вложенного.
+     Красивые номера (<100, <50, <10, одинаковые цифры) — отдельный бросок ~0.2% = джекпот;
+     у дорогих коллекций он ещё реже, чтобы не было гигантских выигрышей за пару попыток */
   const invested=+(g.bought+cost).toFixed(2),roll=Math.random(),sup=COLS[g.col].supply;
   const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
-  const rs=rareRoll(Math.min(sup,100000),1,used);
-  const mode=rs?'jack':roll<.036?'big':roll<.26?'win':roll<.55?'small':'lose';
-  const RNG={big:[3,12,6],win:[1.08,3,1.8],small:[.72,.99,.85],lose:[0,.72,0]};
+  const fl=COLS[g.col].floor,rareK=fl>=400?.25:fl>=100?.6:1;
+  const rs=rareRoll(Math.min(sup,100000),rareK,used);
+  const mode=rs?'jack':roll<.005?'big':roll<.033?'good':roll<.183?'win':roll<.463?'small':'lose';
+  const dear=invested>3000;
+  const RNG={big:dear?[2.5,4,3]:[3,6,4],good:dear?[1.6,2.4,1.9]:[1.8,3,2.2],win:[1.05,1.8,1.3],small:[.72,.99,.85],lose:[0,.72,.3]};
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
   let pickd=null;
   if(mode==='jack')pickd=mk(rs);
