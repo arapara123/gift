@@ -400,7 +400,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в Telegram, результат случайный: номер выпадает наугад, а от номера зависят модель, фон, узор и цена (у каждого признака своя редкость в %). Если цвет подарка сочетается с фоном — это плюс к цене. Улучшение стоит дорого, поэтому окупается каждый пятый апгрейд (шанс 20% одинаковый у всех подарков), и обычно это небольшой плюс (до +100% от вложенного, но не больше +2500 TON). Красивые номера (меньше 100, меньше 50, меньше 10, одинаковые цифры вроде #777) и джекпот на тысячи TON выпадают совсем-совсем редко, примерно раз на 10 000 апгрейдов.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Чаще всего выпадает средний плюс (×1–×2.5) или средний минус (×0.55–×0.99), сильный минус (до ×0.1) встречается реже, а большие иксы (×5, ×15 и выше) — совсем редко. Номер, модель, фон и узор выпадают случайно, а от них зависит цена. Красивые номера (#777, меньше 100 и т. п.) и джекпот на тысячи TON — примерно раз на 10 000 апгрейдов.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -825,7 +825,7 @@ function fair(g,noSerial,noBeauty){
   if(g.base)return +(S.floors[g.col]*BASE_BUY).toFixed(2);
   const mp=premium(MODELS[g.mi][1]*30/SUMS.m*3.3), bp=premium(BACKDROPS[g.bi][3]*30/SUMS.b*19), pp=premium(PATTERNS[g.pi][2]*30/SUMS.p*9);
   const sr=(noSerial?1:serialInfo(g.serial,g.col).m)*(noBeauty?1:matchInfo(g).m);
-  const v=+Math.max(S.floors[g.col]*mp*Math.pow(bp,.95)*Math.pow(pp,.65)*sr,S.floors[g.col]*.65).toFixed(2);
+  const v=+(Math.max(S.floors[g.col]*mp*Math.pow(bp,.95)*Math.pow(pp,.65)*sr,S.floors[g.col]*.65)*(g.vmul||1)).toFixed(2);
   /* у улучшенных подарков оценка не может быть выше потолка (vcap): так плюс всегда ограничен */
   return g.vcap>0?Math.min(v,g.vcap):v;
 }
@@ -1354,6 +1354,17 @@ function upMult(c){
   v.sort((a,b)=>a-b);
   return UPQ[c]=Math.max(v[Math.floor((1-UP_P)*v.length)],1.2);
 }
+/* «кейс»: 30% — плюс, 70% — минус. Каждая строка: [шанс, мин. множитель, макс. множитель] от вложенного.
+   Чаще всего средний плюс (×1–×2.5) и средний минус (×0.55–×0.99), а большие иксы всё реже. */
+const UP_TIERS=[
+  [.185,1.02,1.5],[.075,1.5,2.5],[.034,2.5,5],[.0055,5,15],[.0005,15,50],   /* плюс: 30% */
+  [.25,.8,.99],[.25,.55,.8],[.15,.3,.55],[.05,.1,.3]                         /* минус: 70% */
+];
+function rollUpMult(){
+  let r=Math.random();
+  for(const t of UP_TIERS){if(r<t[0])return t[1]+Math.random()*(t[2]-t[1]);r-=t[0]}
+  return .9;
+}
 function upCost(c){return +(S.floors[c]*Math.max(upMult(c)-BASE_BUY,.5)).toFixed(2)}
 function baseCost(c){return +(S.floors[c]*BASE_BUY).toFixed(2)}
 function bases(){return S.inv.filter(g=>g.base)}
@@ -1413,8 +1424,17 @@ function doUpgrade(){
   const JACK_P=.0001; /* джекпот с красивым номером: примерно раз на 10 000 апгрейдов */
   const rs=Math.random()<JACK_P?rareForce(Math.min(sup,100000),used):0;
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
-  const pickd=mk(rs||plainSerial(sup,used));
-  const vcapV=+(invested+(rs?50000:Math.min(invested,2500))).toFixed(2);
+  /* бросаем «кейс»: сначала выпадает множитель от вложенного (30% плюс / 70% минус),
+     затем выбирается случайный номер, цена которого ближе всего к цели; недостающее добирает vmul */
+  let pickd,vcapV,vmulV=1;
+  if(rs){pickd=mk(rs);vcapV=+(invested+50000).toFixed(2)}
+  else{
+    const target=+Math.max(.5,Math.min(invested*rollUpMult(),invested+50000)).toFixed(2);
+    let best=null;
+    for(let i=0;i<250;i++){const c=mk(plainSerial(sup,used));if(!best||Math.abs(Math.log(c.f/target))<Math.abs(Math.log(best.f/target)))best=c}
+    pickd=best;vcapV=target;
+    if(best.f<target)vmulV=+(target/best.f).toFixed(4);
+  }
   const serial=pickd.sn,r=Object.assign({col:g.col,serial},pickd.tr);
   const jackpot=!!rs;
   /* настоящие данные подарка с Fragment: фон снимаем с картинки, названия берём из JSON — чтобы текст совпадал с тем, что видно */
@@ -1458,7 +1478,7 @@ function doUpgrade(){
     if(smp){g.sm=smp.sm;g.bsync=1}
     if(realAttrs)g.real=realAttrs;
     /* потолок оценки подарка: ограничивает размер плюса */
-    g.vcap=vcapV;
+    g.vcap=vcapV;if(vmulV!==1)g.vmul=vmulV;
     ug.style.transform='';ug.classList.add('done');
     ug.innerHTML=imgTag(g,'uimg')+'<span>'+ini(g.col)+'</span>';
     const tt=q('uttl');tt.classList.add('res');tt.innerHTML=escH(g.col)+' <small>#'+nf(g.serial)+'</small>';
@@ -1794,7 +1814,7 @@ function applyGrants(list){
       if(!COLS[gr.col])continue;
       const sn=Math.max(0,Math.min(1000000,Math.floor(Number(gr.serial))||0));let g;
       if(sn<=0)g={id:S.nextId++,col:gr.col,serial:0,mi:0,bi:0,pi:0,price:0,bought:baseCost(gr.col),listed:false,mine:true,base:true,seller:'me',at:Date.now(),gr:1};
-      else{g=mkGift({col:gr.col,serial:sn,mine:true,seller:'me'});g.nw=0;g.gr=1;if(gr.vcap>0)g.vcap=Math.min(1e7,Number(gr.vcap));g.bought=fair(g)}
+      else{g=mkGift({col:gr.col,serial:sn,mine:true,seller:'me'});g.nw=0;g.gr=1;if(gr.vmul>0)g.vmul=Math.min(1000,Number(gr.vmul));if(gr.vcap>0)g.vcap=Math.min(1e7,Number(gr.vcap));g.bought=fair(g)}
       S.inv.unshift(g);
       const who=gr.from?String(gr.from).replace(/[^A-Za-z0-9_]/g,''):'';
       if(who){recv.push('@'+who+' передал(а) вам '+gr.col+(sn?' #'+sn:''));log('Подарок от @'+who+': '+gr.col+(sn?' #'+sn:''),'подарок','emerald')}
