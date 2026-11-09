@@ -871,8 +871,9 @@ function bg(g){const b=BACKDROPS[g.bi];return `radial-gradient(circle at 50% 40%
 const IMG_OK=new Set(),IMG_URL={},IMG_PEND=new Set();let IMG_ERR=0;
 /* цепочка источников: напрямую -> через прокси (если ваша сеть блокирует Fragment) -> другой номер -> эмодзи */
 function imgCands(s,o){
-  const fb=((o-1)%300)+1,d=n=>`https://nft.fragment.com/gift/${s}-${n}.medium.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(d(n))}&w=360&q=78`;
-  return fb===o?[d(o),px(o)]:[d(o),px(o),d(fb),px(fb)];
+  /* первым идёт наш сервер (/api/g/…): он сам берёт картинку у Fragment, поэтому блокировки и CORS не мешают */
+  const fb=((o-1)%300)+1,L=n=>`/api/g/${s}-${n}.jpg`,d=n=>`https://nft.fragment.com/gift/${s}-${n}.medium.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(d(n))}&w=360&q=78`;
+  return fb===o?[L(o),d(o),px(o)]:[L(o),d(o),px(o),L(fb),d(fb),px(fb)];
 }
 function imgTag(g,cls=''){
   if(UI.render!=='CDN'||g.base||!g.serial)return'';
@@ -891,7 +892,7 @@ function raceImg(urls,cb){
 }
 function preloadImg(s,o){
   const k=s+'-'+o;if(IMG_URL[k]||IMG_PEND.has(k))return;IMG_PEND.add(k);
-  const c=imgCands(s,o),p1=c.slice(0,2),p2=c.slice(2);
+  const c=imgCands(s,o),p1=c.slice(0,3),p2=c.slice(3);
   const ok=u=>{IMG_URL[k]=u;IMG_OK.add(u);IMG_ERR=0;IMG_PEND.delete(k);
     document.querySelectorAll(`img[data-k="${k}"]`).forEach(e=>{if(!e.getAttribute('src')){e.src=u;e.classList.add('ld');const h=e.closest('.hero');if(h)h.classList.add('hasimg')}})};
   const fail=()=>{IMG_PEND.delete(k);if(++IMG_ERR===10&&!IMG_OK.size)toast(' Картинки Fragment недоступны ни напрямую, ни через прокси. Проверьте, открывается ли nft.fragment.com в вашем браузере (возможно, нужен VPN).','bad')};
@@ -931,7 +932,8 @@ function sampleBd(g,cb){
     const bc=rgbHSL(C);
     IMG_BD[k]={E,C,i:bi,sm:{gh:Math.round(gh),bh:Math.round(bc.h),bs:+bc.s.toFixed(2)}};cb(IMG_BD[k]);(IMG_Q[k]||[]).forEach(f=>f(IMG_BD[k]));IMG_Q[k]=[];
   }catch(e){}};
-  im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=64&h=64&fit=cover&q=70`;
+  im.onerror=()=>{if(im._f)return;im._f=1;im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=64&h=64&fit=cover&q=70`};
+  im.src=`/api/g/${COLS[g.col].slug}-${g.serial}.jpg`;
 }
 /* цена должна считаться по тому фону, который реально видно на картинке */
 let _bdT=0;
@@ -985,7 +987,8 @@ function buildCover(g,cb){
     };
     COVER[k]={h:make(H*.39,195,true),p:make(H*.4,150,false)};cb(COVER[k]);
   }catch(e){}});
-  im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=640&q=82`;
+  im.onerror=()=>{if(im._f)return;im._f=1;im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=640&q=82`};
+  im.src=`/api/g/${COLS[g.col].slug}-${g.serial}.jpg`;
 }
 function applyHeroCover(g){const h=$('sheet').querySelector('.hero'),u=COVER[bdKey(g)];if(h&&u&&UI.openId===g.id){h.style.background=`url(${u.h}) center/cover`;h.classList.add('cov')}}
 function artInner(g){return patternGrid(PATTERNS[g.pi][1])+`<div class="emo">${ini(g.col)}</div>`+imgTag(g)}
@@ -1272,7 +1275,7 @@ async function loadReal(g){
   if(g.base||g.real!==undefined||UI.render!=='CDN'||window._noJson)return;
   g.real=null;
   try{
-    const r=await fetch(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.json`,{referrerPolicy:'no-referrer'});
+    const r=await fetch(`/api/g/${COLS[g.col].slug}-${g.serial}.json`);
     if(!r.ok)throw 0;
     const j=await r.json(),o={};
     (j.attributes||[]).forEach(a=>{const m=/^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$/.exec(String(a.value));o[String(a.trait_type||'').toLowerCase()]={v:m?m[1]:String(a.value),p:m?m[2]+'%':''}});
@@ -1399,7 +1402,7 @@ function renderUp(){
 function realOf(col,serial){
   if(UI.render!=='CDN'||window._noJson)return Promise.resolve(null);
   return Promise.race([
-    fetch(`https://nft.fragment.com/gift/${COLS[col].slug}-${serial}.json`,{referrerPolicy:'no-referrer'})
+    fetch(`/api/g/${COLS[col].slug}-${serial}.json`)
       .then(r=>{if(!r.ok)throw 0;return r.json()})
       .then(j=>{const o={};(j.attributes||[]).forEach(a=>{const m=/^(.*?)\s*\((\d+(?:\.\d+)?)%\)\s*$/.exec(String(a.value));o[String(a.trait_type||'').toLowerCase()]={v:m?m[1]:String(a.value),p:m?m[2]+'%':''}});return(o.model||o.backdrop||o.symbol)?o:null})
       .catch(e=>{if(e instanceof TypeError)window._noJson=1;return null}),
