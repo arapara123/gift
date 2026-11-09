@@ -350,6 +350,159 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 .reel.rolling{border-color:rgba(88,169,255,.6);box-shadow:inset 0 0 14px rgba(88,169,255,.25)}
 .reel.lock{border-color:var(--blue2);animation:rlock .35s cubic-bezier(.2,1.6,.4,1)}
 @keyframes rlock{0%{transform:scale(1)}50%{transform:scale(1.09)}100%{transform:scale(1)}}
+
+/* =====================================================================
+   PORTALS NATIVE THEME — плоский тёмный стиль как в настоящем Portals.
+   Без стекла, размытия, северного сияния и свечений. Всё чёткое.
+   ===================================================================== */
+:root{
+  --bg:#101113; --surface:#1a1b1e; --surface2:#1f2024; --surface3:#2a2b30;
+  --line:#2a2b30; --text:#fff; --muted:#8b8e96;
+  --blue:#1a8cff; --blue2:#3b9dff; --green:#3ad07a; --red:#ff5d6c; --amber:#ffb73d; --purple:#9b6dff;
+  --gl:#1a1b1e; --gl2:#1f2024; --glb:#2a2b30; --gsh:none; --blur:none;
+}
+html,body{background:#0b0c0d;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+.app{background:var(--bg)}
+.app::before{display:none!important;animation:none!important}
+@media(min-width:700px){.app{box-shadow:none;border:1px solid var(--line)}}
+
+/* убираем ВСЁ размытие и тени-свечения */
+.chip,.search,.pill,.live,.panel,.table,.reel,.tg-sec,.tg-actions button,.seg,.toast,.card,.bal,.nav,.sheet,.badge,.x,.rb i,.overlay,.tg-cover,.cart{
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:none!important;
+}
+.overlay{background:rgba(0,0,0,.7)}
+
+/* шапка */
+.hdr{padding:14px 14px 8px}
+.hdr h1{font-size:19px;font-weight:700;letter-spacing:-.01em;gap:6px}
+.hdr .sub{display:none}
+.chip{background:var(--surface);border:1px solid var(--line);height:36px;padding:0 12px;font-weight:700;font-size:13px;border-radius:999px}
+.chip b{font-family:Inter,sans-serif}
+.gdot{animation:none}
+
+/* лента событий — тонкая и плоская */
+.live{background:var(--surface);border:1px solid var(--line);border-radius:14px;height:30px}
+.live .tagl{animation:none;background:#e8384f}
+
+/* поиск и круглые кнопки */
+.search{background:var(--surface);border:1px solid var(--line);height:44px}
+.search:focus-within{border-color:#3a3c44;box-shadow:none!important}
+.rbtn{background:#2a2b30;border:0;color:#fff;width:44px;height:44px}
+.rbtn.w{background:#fff;color:#000}
+.rbtn svg{width:19px;height:19px}
+
+/* ползунок цены: серая дорожка, белый кружок */
+.bal{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:12px 16px}
+.trk{background:#3a3b41;height:4px}
+.trk i{background:#fff;height:4px}
+.trk u{background:#fff;width:14px;height:14px;box-shadow:none}
+.bal .bt{border-left:1px solid var(--line)}
+.bal .bt b{font-size:14px}
+
+/* фильтры-пилюли */
+.pill{background:var(--surface);border:1px solid var(--line);color:#c8cbd2;height:36px;font-weight:600}
+.pill.on{background:#2a2b30;border-color:#3a3c44;color:#fff}
+
+/* карточка подарка */
+.grid{gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:26px;padding:8px;transition:transform .12s}
+.card:active{transform:scale(.98)}
+.card.mine{border-color:var(--line)}
+.card.leg{border-color:var(--line)}
+.card.pd,.card.pu,.card.new{animation:none}
+.card.leg .art:after{display:none}
+.art{border-radius:20px}
+.art img{transition:opacity .3s}
+.card:hover .art img.ld{transform:none}
+.emo{color:rgba(255,255,255,.7)!important}
+.ctitle{font-size:16px;font-weight:700;margin:10px 4px 0;letter-spacing:-.01em}
+.cid{font-size:13px;color:#8b8e96;margin:2px 4px 9px;font-weight:500}
+.buy{background:var(--blue);box-shadow:none!important;border-radius:999px;height:40px;font-weight:700;font-size:14.5px;filter:none}
+.buy:active{filter:brightness(.92)}
+.buy.green{background:var(--green);color:#04210f}
+.buy.ghost{background:#2a2b30;color:#fff}
+.buy.red{background:rgba(255,93,108,.14);color:var(--red)}
+.cart{background:#2a2b30;border:0;color:#fff;border-radius:16px;width:46px;height:40px}
+.badge{background:rgba(0,0,0,.45);border:0;font-weight:700}
+.badge.g{background:var(--green)}.badge.a{background:var(--amber)}
+.badge.b{background:rgba(0,0,0,.5);color:#fff}
+
+/* нижняя навигация — плоская */
+.nav{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));background:#1a1b1e;border:1px solid var(--line);border-radius:30px;padding:6px}
+.nav button{color:#8b8e96;font-size:10px;border-radius:22px}
+.nav button.on{background:#2a2b30;color:#fff;box-shadow:none}
+.nav button.on svg{color:#fff}
+.dot{background:var(--blue);color:#fff}
+
+/* шторка и панели */
+.sheet{background:#141517;border:1px solid var(--line);border-bottom:0;border-radius:28px 28px 0 0}
+.sheet .table,.sheet .panel,.table,.panel{background:var(--surface);border:1px solid var(--line);border-radius:20px}
+.panel{background:var(--surface)}
+.tr{border-bottom:1px solid var(--line)}
+.x{background:rgba(0,0,0,.5);border:0}
+.hero{border-radius:0 0 28px 28px}
+.hero .emo,.gimg{animation:none}
+.input{background:#101113;border:1px solid var(--line);border-radius:16px}
+.input:focus{border-color:#3a3c44}
+.tag.t-blue{background:#23303f;color:#6db4ff}
+.reel{background:var(--surface);border:1px solid var(--line)}
+.reel.rolling,.reel.lock{box-shadow:none!important;border-color:#3a3c44}
+.seg{background:var(--surface);border:1px solid var(--line)}
+.seg button.on{background:var(--blue)}
+.toast{background:#1f2024;border:1px solid var(--line)}
+.toast.ok{border-color:#2c6b47}.toast.bad{border-color:#7a2f38}
+
+/* кошелёк-карта и профиль: без вращающихся бликов */
+.bank{background:linear-gradient(135deg,#1b2740,#14161c);border:1px solid var(--line);box-shadow:none}
+.bank:before{display:none}
+.tg-actions button{background:var(--surface);border:1px solid var(--line);color:#fff}
+.tg-sec{background:var(--surface);border:1px solid var(--line)}
+.urow{background:var(--surface);border:1px solid var(--line)}
+.h2{font-weight:700}
+.sec-t{color:#8b8e96}
+/* шапка в одну строку */
+.hdr h1{font-size:17px;white-space:nowrap}
+.hdr .row{gap:5px}
+.hdr .chip{height:32px;padding:0 10px;font-size:12px}
+.hdr .chip b{font-size:13px}
+#imgb,#snd{padding:0 9px!important;font-size:11px;color:#c8cbd2}
+
+/* ===== переключатель Все / Коллекции ===== */
+.mtabs{display:flex;gap:8px;margin:8px 0 10px}
+.mtabs button{flex:1;height:44px;border-radius:999px;font-weight:700;font-size:14px;color:#aeb2bb}
+.mtabs button.on{color:#fff}
+
+/* ===== жидкое стекло — только там, где оно есть в Portals:
+   нижнее меню, круглые кнопки, поиск, ползунок, пилюли, шапка ===== */
+.nav,.rbtn,.search,.bal,.mtabs button,.hdr .chip,.pill,.toast,.x{
+  background:rgba(255,255,255,.07)!important;
+  -webkit-backdrop-filter:blur(22px) saturate(180%)!important;backdrop-filter:blur(22px) saturate(180%)!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),inset 0 -1px 0 rgba(255,255,255,.04),0 8px 24px rgba(0,0,0,.3)!important;
+}
+.nav{background:rgba(34,36,42,.5)!important;-webkit-backdrop-filter:blur(30px) saturate(190%)!important;backdrop-filter:blur(30px) saturate(190%)!important;border-color:rgba(255,255,255,.18)!important}
+.nav button.on{background:rgba(255,255,255,.14)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.25)!important}
+.rbtn.w{background:#fff!important;color:#000;border-color:#fff!important}
+.pill.on,.mtabs button.on{background:rgba(255,255,255,.18)!important;border-color:rgba(255,255,255,.28)!important}
+.seg button.on{background:var(--blue)!important}
+
+/* ===== без анимации предметов ===== */
+.hero .himg,.hero .hini,.hero .emo,.gimg,.ugift.done,.urays,.card,.card.new,.art img{animation:none!important}
+.hero .himg.gspin,.hero .hini.gspin{animation:none!important}
+.ugift.done{transform:none!important}
+
+/* квадрат во время улучшения: жидкое стекло + вращение */
+.ugift:not(.done){
+  background:linear-gradient(135deg,rgba(255,255,255,.36),rgba(255,255,255,.07) 48%,rgba(255,255,255,.2))!important;
+  -webkit-backdrop-filter:blur(16px) saturate(190%)!important;backdrop-filter:blur(16px) saturate(190%)!important;
+  border:1.5px solid rgba(255,255,255,.55)!important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.65),inset 0 -2px 10px rgba(255,255,255,.2),inset 0 0 24px rgba(255,255,255,.12),0 18px 40px rgba(0,0,0,.35)!important;
+}
+.ugift:not(.done)::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(115deg,transparent 28%,rgba(255,255,255,.55) 47%,transparent 62%)}
+@keyframes ugspin{from{transform:perspective(520px) rotateY(0deg)}to{transform:perspective(520px) rotateY(360deg)}}
+.art img,.card:hover .art img.ld{transform:none!important}
+/* порядок барабанов апгрейда: фон → узор → модель */
+#r-b{order:1}#r-p{order:2}#r-m{order:3}
 </style>
 </head>
 <body>
@@ -373,6 +526,10 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 
 <!-- MARKET -->
 <main id="v-market" class="scroll">
+  <div class="mtabs" id="mtabs">
+    <button data-v="all" class="on" onclick="setMview('all')">Все</button>
+    <button data-v="cols" onclick="setMview('cols')">Коллекции</button>
+  </div>
   <div class="row" style="margin-bottom:2px;margin-top:8px">
     <div class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7d8594" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" placeholder="Быстрый поиск" oninput="UI.q=this.value;renderMarket()"></div>
     <button class="chip rbtn" onclick="openFilters()" title="Фильтры"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span id="fcnt" class="dot hidden" style="background:var(--blue);color:#fff;top:-3px;right:-3px"></span></button>
@@ -388,6 +545,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
   </div>
   </div>
   <div class="grid" id="mgrid" style="margin-top:6px"></div>
+  <div class="grid hidden" id="cgrid" style="margin-top:6px"></div>
+  <button class="buy ghost hidden" id="more" style="margin-top:12px" onclick="UI.lim=(UI.lim||60)+60;renderMarket()"></button>
   <p class="mut" style="text-align:center;padding:16px">@portals · симулятор · картинки с nft.fragment.com</p>
 </main>
 
@@ -412,7 +571,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Результат считается в TON: обычно ±2…4 TON, реже ±5…10, совсем редко +20…30 или −15…25 TON. Номер, модель, фон и узор выпадают случайно. Джекпот (+120…+150 TON, красивый номер вроде #777) выпадает примерно раз на 5000 улучшений.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Результат считается в TON: обычно ±2…4 TON, реже ±5…10, совсем редко +20…30 или −15…25 TON. Сначала выпадает фон, потом узор, потом модель, номер выпадает случайно. Джекпот (+120…+150 TON, красивый номер вроде #777) выпадает примерно раз на 5000 улучшений.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -681,7 +840,7 @@ const BASE_BUY=.35, UP_FEE=1.5, UP_WIN=.3, UP_JACK=.004; /* UP_WIN — общи�
 const KEY='portals_sim_v4';
 let S;
 function freshState(){return{
-  mv:6,ton:50,cashback:0,vol:0,profit:0,flips:0,best:0,spent:0,
+  mv:7,ton:50,cashback:0,vol:0,profit:0,flips:0,best:0,spent:0,
   prof:{name:'Трейдер',user:'portals_flipper',bio:'Флипаю подарки Telegram',av:'',col:0},
   worn:null,pinned:[],friends:[],ackq:[],
   floors:Object.fromEntries(COL_NAMES.map(c=>[c,COLS[c].floor])),
@@ -696,7 +855,7 @@ const TRK={t:0,c:0}; /* t — целевая позиция ползунка ц�
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}cloudSoon()}
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
 function patchState(){
-  const stale=S.mv!==6;
+  const stale=S.mv!==7;
   const d=freshState();for(const k in d)if(S[k]===undefined)S[k]=d[k];
   COL_NAMES.forEach(c=>{if(S.floors[c]==null)S.floors[c]=COLS[c].floor});
   COL_NAMES.forEach(c=>{if(!S.fh[c])S.fh[c]=Array(30).fill(S.floors[c]||COLS[c].floor)});
@@ -708,7 +867,7 @@ function patchState(){
     if(seen.has(k)){const sup=COLS[g.col].supply;let n=g.serial,t=0;do{n=Math.max(1,Math.ceil(Math.random()*sup))}while(seen.has(g.col+'#'+n)&&t++<80);g.serial=n;g.bsync=0;g.sm=null}
     seen.add(g.col+'#'+g.serial)})}
   [...S.market,...S.inv].forEach(g=>{if(!g.base&&!g.bsync){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}});
-  if(stale){S.market=S.market.filter(g=>g.mine);S.mv=6;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
+  if(stale){S.market=S.market.filter(g=>g.mine);S.mv=7;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
 }
 
 /* =================== УТИЛИТЫ =================== */
@@ -821,12 +980,12 @@ function matchInfo(g){
   const bh=sm?sm.bh:tb.h,bs=sm?sm.bs:tb.s,gh=sm?sm.gh:giftHue(g),k=sm?1.2:1;
   if(bs>=.2&&gh>=0){
     let d=Math.abs(gh-bh);d=Math.min(d,360-d);
-    if(d<=12*k){m=2.2;tags.push('Идеальное совпадение цвета')}
+    if(d<=12*k){m=2.2;tags.push('Монохром')}
     else if(d<=25*k){m=1.6;tags.push('Гармония с фоном')}
     else if(d<=40*k){m=1.25;tags.push('Красивое сочетание')}
     else if(Math.abs(d-180)<=16){m=1.15;tags.push('Контраст с фоном')}
     else if(d>=70&&d<=150){m=.88;tags.push('Не сочетается с фоном')}
-  }
+  }else if(sm&&gh<0&&bs<.2){m=1.7;tags.push('Монохром')}
   const bn=BACKDROPS[g.bi][0];
   if(bn==='Onyx Black'){m*=2.6;tags.push('Onyx Black — самый ценный фон')}else if(bn==='Black'){m*=4.5;tags.push('Чёрный фон')}
   let c=0;if(MODELS[g.mi][1]<=4)c++;if(BACKDROPS[g.bi][3]<=5)c++;if(PATTERNS[g.pi][2]<=8)c++;
@@ -849,7 +1008,7 @@ function bdPct(g){return pct(BACKDROPS[g.bi][3],SUMS.b)}
 function patPct(g){return pct(PATTERNS[g.pi][2],SUMS.p)}
 /* часть продавцов не замечает редкий номер — это шанс найти «гем» */
 /* целевое число лотов коллекции: чем дешевле подарок, тем его больше на рынке */
-function baseTarget(c){return clamp(22/Math.pow(COLS[c].floor,.42),1.2,18)}
+function baseTarget(c){return clamp(52/Math.pow(COLS[c].floor,.42),2.5,34)}
 function niceAsk(v){
   if(v<30)return +v.toFixed(2);
   const r=Math.random();
@@ -863,15 +1022,29 @@ function marketPrice(g){
   /* красивые подарки (сочетание цвета, редкий номер) стоят дороже, некрасивые — дешевле.
      Часть продавцов не замечает красоту и ставит цену как за обычный — это шанс найти находку. */
   const plain=fair(g,false,true);
-  if(f>plain*1.25&&r<.14)return niceAsk(Math.max(plain*rnd(.95,1.15),S.floors[g.col]*rnd(1,1.04)));
+  if(f>plain*1.25&&r<.05)return niceAsk(Math.max(plain*rnd(.95,1.15),S.floors[g.col]*rnd(1,1.04)));
+  return botReprice(g);
+}
+/* Как ведут себя продавцы-боты. Они ориентируются на оценку подарка, но ошибаются в обе стороны:
+   – красивые подарки (редкий фон, монохром, чёрный фон, двойная/тройная редкость, красивый номер) обычно стоят дороже;
+   – иногда продавец не заметил красоту и выставил дёшево — это находка (редко);
+   – обычные подарки тоже могут быть и завышены, и занижены. */
+function botReprice(g){
+  const f=fair(g),plain=fair(g,false,true),beauty=plain>0?f/plain:1,r=Math.random();
   let k;
-  if(r<.03)k=rnd(.6,.8);
-  else if(r<.11)k=rnd(.82,.93);
-  else if(r<.72)k=rnd(.95,1.1);
-  else if(r<.90)k=rnd(1.1,1.3);
-  else if(r<.97)k=rnd(1.3,1.6);
-  else k=rnd(1.6,2.3);
-  return niceAsk(Math.max(.5,f*k,S.floors[g.col]*rnd(1,1.04)));
+  if(beauty>=1.4){
+    if(r<.04)k=rnd(.55,.85);          /* ошибка: красивый лот выставлен дёшево */
+    else if(r<.17)k=rnd(.9,1.0);
+    else if(r<.72)k=rnd(1.0,1.25);
+    else k=rnd(1.25,2.1);             /* жадный продавец */
+  }else{
+    if(r<.03)k=rnd(.6,.85);
+    else if(r<.17)k=rnd(.88,.97);
+    else if(r<.70)k=rnd(.97,1.1);
+    else if(r<.92)k=rnd(1.1,1.35);
+    else k=rnd(1.35,1.9);
+  }
+  return niceAsk(Math.max(.5,f*k,S.floors[g.col]*rnd(1,1.03)));
 }
 
 /* =================== ВИЗУАЛ ПОДАРКА =================== */
@@ -1000,7 +1173,7 @@ function buildCover(g,cb){
   im.src=`https://wsrv.nl/?url=${encodeURIComponent(`https://nft.fragment.com/gift/${COLS[g.col].slug}-${g.serial}.medium.jpg`)}&w=640&q=82`;
 }
 let _spinT=0;
-function spinGift(){
+function spinGift(){return;
   const h=$('sheet').querySelector('.hero');if(!h)return;
   const els=[...h.querySelectorAll('.himg,.hini')];
   /* если подарок «впечатан» в фон обложки, на время вращения показываем фон без подарка и сам подарок отдельно */
@@ -1099,7 +1272,12 @@ function tick(){
   }
   // продавцы меняют цены на лотах
   const oth=S.market.filter(x=>!x.mine);
-  for(let i=0;i<2&&oth.length;i++){const g=pick(oth),k=Math.random()<.6?rnd(.93,.99):rnd(1.01,1.05);g.price=+Math.max(.5,g.price*k).toFixed(2);g.fl=k<1?-1:1}
+  /* боты переоценивают лоты: могут и поднять, и опустить цену (двигаются к новому ориентиру) */
+  for(let i=0;i<8&&oth.length;i++){
+    const g=pick(oth),old=g.price,tg=botReprice(g);
+    g.price=+Math.max(.5,old+(tg-old)*rnd(.3,.85)).toFixed(2);
+    g.fl=g.price<old?-1:g.price>old?1:0;
+  }
   // боты покупают ваши лоты
   for(const g of S.inv.filter(x=>x.listed)){
     if(Math.random()<chanceFor(g.price/fair(g))){const b=pick(BOTS);const net=+(g.price*(1-feeRate())).toFixed(2);S.cashback=+(S.cashback+g.price*feeRate()*.2).toFixed(2);completeSale(g,net,g.price,b[0]);break}
@@ -1113,7 +1291,7 @@ function tick(){
   S.offers=S.offers.filter(o=>o.exp>Date.now()&&S.inv.some(g=>g.id===o.gid));
   // боты скупают самые выгодные чужие лоты
   const others=S.market.filter(x=>!x.mine);
-  if(others.length>40&&Math.random()<.45){
+  if(others.length>40&&Math.random()<.3){
     const sorted=[...others].sort((a,b)=>a.price/fair(a)-b.price/fair(b));const g=sorted[Math.floor(Math.random()*4)];
     S.market=S.market.filter(x=>x.id!==g.id);const b=pick(BOTS);S.botProfit[b[0]]=+(S.botProfit[b[0]]+rnd(0,2)).toFixed(1);
     feed(`<b>${b[0]}</b> купил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
@@ -1137,7 +1315,7 @@ function tick(){
       while(n-->0){const pool=S.market.filter(x=>!x.mine&&x.col===c);if(pool.length<=want)break;const v=pick(pool);S.market=S.market.filter(x=>x.id!==v.id)}
     }
   });
-  adds=adds.sort(()=>Math.random()-.5).slice(0,9);
+  adds=adds.sort(()=>Math.random()-.5).slice(0,18);
   {
     const ex=adds.find(c=>COLS[c].floor>=400&&(cnt[c]||0)>=5);
     if(ex)feed(`<b>${ex}</b>: на рынок вышла партия лотов — сейчас ${(cnt[ex]||0)+adds.filter(x=>x===ex).length} шт.`);
@@ -1175,12 +1353,11 @@ function visible(){
   const s=UI.sort;
   if(s==='PRICE_ASC')l.sort((a,b)=>a.price-b.price);
   else if(s==='PRICE_DESC')l.sort((a,b)=>b.price-a.price);
-  else if(s==='DEAL')l.sort((a,b)=>a.price/fair(a)-b.price/fair(b));
   else l.sort((a,b)=>a.serial-b.serial);
   return l;
 }
-function cycleSort(){const m=['PRICE_ASC','DEAL','PRICE_DESC','SERIAL'],L={PRICE_ASC:'↑ Цена',DEAL:' Выгода',PRICE_DESC:'↓ Цена',SERIAL:'# Номер'};UI.sort=m[(m.indexOf(UI.sort)+1)%4];$('p-sort').textContent=L[UI.sort];renderMarket()}
-function resetFilters(){UI.col='ALL';UI.tier='ALL';UI.bd='ALL';UI.q='';UI.pq=null;$('q').value='';renderMarket()}
+function cycleSort(){const m=['PRICE_ASC','PRICE_DESC','SERIAL'],L={PRICE_ASC:'↑ Цена',PRICE_DESC:'↓ Цена',SERIAL:'# Номер'};UI.sort=m[(m.indexOf(UI.sort)+1)%3];$('p-sort').textContent=L[UI.sort];renderMarket()}
+function resetFilters(){UI.lim=60;UI.col='ALL';UI.tier='ALL';UI.bd='ALL';UI.q='';UI.pq=null;$('q').value='';renderMarket()}
 
 /* =================== РЕНДЕР: МАРКЕТ =================== */
 function giftCard(g,mode){
@@ -1198,10 +1375,28 @@ function giftCard(g,mode){
     <div class="ctitle">${g.col}</div>
     <div class="cid">#${nf(g.serial)}${mode==='inv'?' · ≈ '+f2(f)+' TON':''}</div>${btn}</div>`;
 }
+function setMview(v){UI.mview=v;UI.lim=60;sfx.click();$('v-market').scrollTop=0;renderMarket()}
+function pickCol(c){UI.col=c;UI.mview='all';UI.lim=60;sfx.click();$('v-market').scrollTop=0;renderMarket()}
+function renderCols(){
+  const cnt={},mn={},fl={};
+  S.market.forEach(g=>{if(g.mine)return;cnt[g.col]=(cnt[g.col]||0)+1;if(!(g.col in mn)||g.price<mn[g.col]){mn[g.col]=g.price;fl[g.col]=g}});
+  const q=UI.q.trim().toLowerCase();
+  const l=COL_NAMES.filter(c=>!q||c.toLowerCase().includes(q)).sort((a,b)=>S.floors[b]-S.floors[a]);
+  l.forEach(c=>{if(fl[c])syncBd(fl[c])});
+  setHTML($('cgrid'),l.length?l.map(c=>{
+    const g=fl[c],a=c.replace(/'/g,"\\'");
+    return `<div class="card"><div class="art" style="background:${g?bg(g):'#2a2b30'}" onclick="pickCol('${a}')">${g?artInner(g):'<div class="emo">'+ini(c)+'</div>'}</div><div class="ctitle">${c}</div><div class="cid">${cnt[c]||0} лотов</div><button class="buy ghost" onclick="pickCol('${a}')">от ${f2(S.floors[c])} ${TON_SVG}</button></div>`;
+  }).join(''):'<div class="empty" style="grid-column:span 2">Коллекция не найдена</div>');
+}
 function renderMarket(){
+  document.querySelectorAll('#mtabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===(UI.mview||'all')));
+  {const cv=UI.mview==='cols';
+   $('mgrid').classList.toggle('hidden',cv);$('cgrid').classList.toggle('hidden',!cv);$('mtools').style.display=cv?'none':'';
+   if(cv){$('more').classList.add('hidden');renderCols();return}}
   setHTML($('col-pills'),['ALL',...COL_NAMES].map(c=>`<button class="pill ${UI.col===c?'on':''}" onclick="UI.col='${c.replace(/'/g,"\\'")}';renderMarket()">${c==='ALL'?'Все':c}</button>`).join(''));
   const n=(UI.tier!=='ALL')+(UI.bd!=='ALL');$('fcnt').textContent=n;$('fcnt').classList.toggle('hidden',!n);
-  const base=visibleBase(),all=visible(),l=all.slice(0,60),cap=priceCap(base);
+  const base=visibleBase(),all=visible(),lim=UI.lim||60,l=all.slice(0,lim),cap=priceCap(base);
+  $('more').classList.toggle('hidden',all.length<=lim);$('more').textContent='Показать ещё ('+(all.length-lim)+')';
   const aff=base.filter(g=>g.price<=S.ton).length,p=UI.pq!=null?UI.pq:(base.length?aff/base.length*100:0);
   if(cap!=null){$('bal-t').textContent='до '+f2(cap)+' TON';$('bal-s').textContent=all.length+' из '+base.length+' лотов'}
   else{$('bal-t').textContent=f2(S.ton)+' TON';$('bal-s').textContent=aff+' из '+base.length+' по карману'}
@@ -1499,7 +1694,8 @@ function doUpgrade(){
   const ug=q('ugift'),rays=q('urays'),bdA=q('ubdA'),bdB=q('ubdB');
   let on=bdA;
   const setBd=css=>{const nx=on===bdA?bdB:bdA;nx.style.background=css;nx.classList.add('on');on.classList.remove('on');on=nx};
-  const tP=1900,tM=2800,tB=jackpot?5400:3700,TEND=Math.max(tP,tM,tB);
+  /* порядок выпадения: сначала фон, потом узор, потом модель */
+  const tB=jackpot?2600:1900,tP=jackpot?4000:3000,tM=jackpot?5600:4100,TEND=Math.max(tP,tM,tB),ord=['r-b','r-p','r-m'];
   const reels=[
     {k:'r-m',n:MODELS.length,fin:r.mi,T:tM,pct:()=>modelPct(r),nm:i=>MODELS[i][0]},
     {k:'r-b',n:BACKDROPS.length,fin:r.bi,T:tB,pct:()=>bdPct(r),nm:i=>BACKDROPS[i][0],bd:1},
@@ -1533,11 +1729,16 @@ function doUpgrade(){
     save();refresh();
     setTimeout(()=>{UI.upBusy=false;UI.upId=null;renderUp();openGift(g.id,true)},1400);
   };
+  /* вращение квадрата: резкий рывок → спокойно → рывок → спокойно → рывок */
+  let ang=0,lastT=T0;
   const frame=now=>{
-    const el=now-T0;
+    const el=now-T0,dtf=Math.min(50,now-lastT);lastT=now;
+    {const pp=cl(el/TEND,0,1),bump=c=>Math.exp(-Math.pow((pp-c)/.06,2)),sp=.12+1.35*(bump(.12)+bump(.46)+bump(.8));
+     ang+=sp*dtf;
+     ug.style.transform=`perspective(460px) rotateY(${ang.toFixed(1)}deg) scale(${(1+.07*Math.sin(el/80)*(1-pp)).toFixed(3)})`;}
     reels.forEach(x=>{
       if(x.done)return;
-      if(el>=x.T&&(rdone||el>=x.T+2600)){
+      if(el>=x.T&&(rdone||el>=x.T+2600)&&ord.slice(0,ord.indexOf(x.k)).every(k=>reels.find(y=>y.k===k).done)){
         x.done=true;
         const f=finalOf(x.k),v=q(x.k+'-v');
         v.textContent=f.n;v.classList.remove('rl');void v.offsetWidth;v.classList.add('rl');
@@ -1551,12 +1752,11 @@ function doUpgrade(){
         /* итог не показываем раньше времени */
         do{x.i=(x.i+1+Math.floor(Math.random()*(x.n-1)))%x.n}while(x.i===x.fin&&el<x.T-400);
         show(x,x.i);
-        if(x.k==='r-m')sfx.tick();
+        sfx.tick();
         const p=Math.min(1,el/x.T);x.next=el+Math.max(x.bd?140:70,60+190*p*p);
       }
     });
     const p=cl(el/TEND,0,1);
-    ug.style.transform=`perspective(460px) rotateY(${(1440*ease(p)).toFixed(1)}deg) scale(${(1+.07*Math.sin(el/80)*(1-p)).toFixed(3)})`;
     rays.style.opacity=(cl(el/1400,0,1)*.9).toFixed(2);
     if(el>=TEND+450&&reels.every(x=>x.done)){reveal();return}
     requestAnimationFrame(frame);
