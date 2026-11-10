@@ -15,5 +15,12 @@
       "database_name": "portalgame",
       "database_id": "b096fff3-bfd4-4dab-929a-257743a5c8f1"
     }
-  ]
+  ],
+  "vars": {
+    "BOT_USERNAME": "ВПИШИ_ЮЗЕРНЕЙМ_БОТА",
+    "APP_SHORTNAME": ""
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
 }

@@ -39,7 +39,50 @@ async function init(db) {
   await db.exec('CREATE TABLE IF NOT EXISTS grants (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, ts INTEGER NOT NULL, applied INTEGER NOT NULL DEFAULT 0)');
   await db.exec('CREATE INDEX IF NOT EXISTS grants_u ON grants (user_id, applied)');
   await db.exec('CREATE TABLE IF NOT EXISTS admin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL, detail TEXT NOT NULL)');
+  await db.exec('CREATE TABLE IF NOT EXISTS tglink (user_id INTEGER PRIMARY KEY, tg_id INTEGER NOT NULL UNIQUE, ts INTEGER NOT NULL)');
+  await db.exec('CREATE TABLE IF NOT EXISTS tgseen (tg_id INTEGER PRIMARY KEY, ts INTEGER NOT NULL)');
+  await db.exec('CREATE TABLE IF NOT EXISTS refs (user_id INTEGER PRIMARY KEY, ref_id INTEGER NOT NULL, ts INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0)');
+  await db.exec('CREATE INDEX IF NOT EXISTS refs_r ON refs (ref_id)');
+  await db.exec('CREATE TABLE IF NOT EXISTS cronat (user_id INTEGER PRIMARY KEY, at INTEGER NOT NULL)');
   ready = true;
+}
+
+const REF_BONUS = 10;
+const BOTS = ['@whale_gram', '@pepe_hunter', '@durov_vault', '@fragment_sniper', '@flip_master', '@portals_arb', '@tokyo_drift', '@gift_baron', '@vice_runner', '@lucia_flips'];
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const f2 = n => (Math.round(n * 100) / 100).toFixed(2);
+
+function appLink(env, start) {
+  const bot = String(env.BOT_USERNAME || '').replace(/^@/, '');
+  if (!/^[A-Za-z0-9_]{3,40}$/.test(bot)) return '';
+  const sh = String(env.APP_SHORTNAME || '');
+  return 'https://t.me/' + bot + (/^[A-Za-z0-9_]{1,40}$/.test(sh) ? '/' + sh : '') + (start ? '?startapp=' + encodeURIComponent(start) : '');
+}
+async function tgSend(env, chatId, text) {
+  if (!env.BOT_TOKEN || !chatId) return false;
+  const link = appLink(env, 'open');
+  try {
+    const r = await fetch('https://api.telegram.org/bot' + env.BOT_TOKEN + '/sendMessage', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, reply_markup: link ? { inline_keyboard: [[{ text: 'Открыть Portals Market', url: link }]] } : undefined })
+    });
+    return r.ok;
+  } catch (e) { return false; }
+}
+async function checkInit(initData, token) {
+  if (!token || typeof initData !== 'string' || initData.length > 4096) return null;
+  const p = new URLSearchParams(initData), hash = p.get('hash');
+  if (!hash) return null;
+  p.delete('hash');
+  const dcs = [...p.entries()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(([k, v]) => k + '=' + v).join('\n');
+  const k1 = await crypto.subtle.importKey('raw', enc.encode('WebAppData'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const secret = await crypto.subtle.sign('HMAC', k1, enc.encode(token));
+  const k2 = await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = hex(await crypto.subtle.sign('HMAC', k2, enc.encode(dcs)));
+  if (!same(sig, hash)) return null;
+  if (Date.now() / 1000 - Number(p.get('auth_date') || 0) > 7 * 86400) return null;
+  let u = null; try { u = JSON.parse(p.get('user') || 'null'); } catch (e) {}
+  return u && Number.isInteger(u.id) && u.id > 0 ? u : null;
 }
 
 async function limited(db, key, max, windowMs) {
@@ -105,6 +148,11 @@ async function register(req, env) {
       .bind(username, ITER + '$' + h, salt, Date.now()).run();
     id = r.meta.last_row_id;
   } catch (e) { return err('Этот юзернейм уже занят', 409); }
+  const ref = String(b.ref || '').replace(/^ref_/, '');
+  if (USER_RE.test(ref) && ref.toLowerCase() !== username.toLowerCase()) {
+    const r = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(ref).first();
+    if (r) await env.DB.prepare('INSERT OR IGNORE INTO refs (user_id, ref_id, ts, paid) VALUES (?, ?, ?, 0)').bind(id, r.id, Date.now()).run();
+  }
   return json({ token: await newSession(env, id), username });
 }
 
@@ -163,6 +211,7 @@ async function save(req, env, user) {
   const now = Date.now();
   const prev = await env.DB.prepare('SELECT data, updated FROM saves WHERE user_id = ?').bind(user.id).first();
   if (prev && now - prev.updated < 1500) return err('Слишком часто', 429);
+  if (prev) { const pd = parse(prev.data); if (pd && (Number(pd.rev) || 0) > (Number(d.rev) || 0)) return err('stale', 409); }
 
   let ack = [];
   if (Array.isArray(b.ack)) ack = [...new Set(b.ack.map(Number).filter(n => Number.isInteger(n) && n > 0))].slice(0, 50);
@@ -328,12 +377,122 @@ async function adminRoute(req, env, url, path, m, u) {
   return err('Не найдено', 404);
 }
 
+async function tglink(req, env, u) {
+  if (!env.BOT_TOKEN) return json({ linked: false, off: true });
+  let b; try { b = await readJson(req, 6000); } catch (e) { return err('Неверный запрос'); }
+  const t = await checkInit(b.initData, env.BOT_TOKEN);
+  if (!t) return err('Не удалось проверить Telegram', 401);
+  const now = Date.now();
+  const other = await env.DB.prepare('SELECT user_id FROM tglink WHERE tg_id = ?').bind(t.id).first();
+  if (other && other.user_id !== u.id) return json({ linked: false, busy: true });
+  if (!other) {
+    await env.DB.prepare('INSERT OR REPLACE INTO tglink (user_id, tg_id, ts) VALUES (?, ?, ?)').bind(u.id, t.id, now).run();
+  }
+  const seen = await env.DB.prepare('INSERT OR IGNORE INTO tgseen (tg_id, ts) VALUES (?, ?)').bind(t.id, now).run();
+  const first = seen.meta && seen.meta.changes > 0;
+  let refPaid = false;
+  const rf = await env.DB.prepare('SELECT r.ref_id, u.username, t.tg_id FROM refs r JOIN users u ON u.id = r.ref_id LEFT JOIN tglink t ON t.user_id = r.ref_id WHERE r.user_id = ? AND r.paid = 0').bind(u.id).first();
+  if (rf) {
+    const banned = await env.DB.prepare('SELECT 1 AS x FROM bans WHERE user_id = ?').bind(rf.ref_id).first();
+    const today = await env.DB.prepare('SELECT COUNT(*) AS n FROM refs WHERE ref_id = ? AND paid = 1 AND ts > ?').bind(rf.ref_id, now - 864e5).first();
+    if (first && !banned && (today ? today.n : 0) < 30) {
+      const pay = JSON.stringify({ amount: REF_BONUS, why: 'ref' });
+      await env.DB.batch([
+        env.DB.prepare('UPDATE refs SET paid = 1, ts = ? WHERE user_id = ?').bind(now, u.id),
+        env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)').bind(u.id, 'ton', pay, now),
+        env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)').bind(rf.ref_id, 'ton', JSON.stringify({ amount: REF_BONUS, why: 'ref', who: u.username }), now)
+      ]);
+      refPaid = true;
+      if (rf.tg_id) await tgSend(env, rf.tg_id, 'По твоей ссылке пришёл @' + u.username + '. Тебе начислено +' + REF_BONUS + ' GRAM!');
+    } else {
+      await env.DB.prepare('UPDATE refs SET paid = 2 WHERE user_id = ?').bind(u.id).run();
+    }
+  }
+  return json({ linked: true, refPaid, bonus: REF_BONUS });
+}
+
+async function refstats(env, u) {
+  const r = await env.DB.prepare('SELECT COUNT(*) AS n, SUM(CASE WHEN paid = 1 THEN 1 ELSE 0 END) AS p FROM refs WHERE ref_id = ?').bind(u.id).first();
+  const l = await env.DB.prepare('SELECT 1 AS x FROM tglink WHERE user_id = ?').bind(u.id).first();
+  return json({ invited: (r && r.n) || 0, paid: (r && r.p) || 0, bonus: REF_BONUS, link: appLink(env, 'ref_' + u.username), tg: !!l, notify: !!env.BOT_TOKEN });
+}
+
+async function cron(env) {
+  await init(env.DB);
+  const now = Date.now();
+  const { results } = await env.DB.prepare(
+    'SELECT s.user_id, s.data, s.profile, s.updated, t.tg_id, c.at FROM saves s LEFT JOIN tglink t ON t.user_id = s.user_id LEFT JOIN cronat c ON c.user_id = s.user_id ' +
+    'WHERE s.updated < ? AND s.updated > ? AND NOT EXISTS (SELECT 1 FROM bans b WHERE b.user_id = s.user_id) ORDER BY s.updated DESC LIMIT 300'
+  ).bind(now - 4 * 60e3, now - 14 * 864e5).all();
+  const marks = [];
+  for (const row of results) {
+    const d = parse(row.data);
+    if (!d || !Array.isArray(d.inv) || !Number.isFinite(d.ton)) continue;
+    const last = Math.max(row.at || 0, row.updated || 0), mins = Math.min(120, (now - last) / 60e3);
+    marks.push(env.DB.prepare('INSERT OR REPLACE INTO cronat (user_id, at) VALUES (?, ?)').bind(row.user_id, now));
+    if (mins < 1) continue;
+    const msgs = [], away = [];
+    let changed = false;
+    for (const g of [...d.inv]) {
+      if (!g || g.base || !g.listed || !(g.price > 0)) continue;
+      const ch = num(g.ch, 0, 0.5);
+      if (!ch || Math.random() >= 1 - Math.pow(1 - ch, 7 * mins)) continue;
+      const vol = +d.vol || 0, fee = g.ncap > 0 ? 0 : vol >= 500 ? 0.03 : vol >= 100 ? 0.04 : 0.05;
+      const net = +(g.price * (1 - fee)).toFixed(2), pl = +(net - (+g.bought || 0)).toFixed(2);
+      d.inv = d.inv.filter(x => x !== g);
+      d.market = (d.market || []).filter(x => !(x && x.id === g.id));
+      d.pinned = (d.pinned || []).filter(x => x !== g.id);
+      d.offers = (d.offers || []).filter(o => !(o && o.gid === g.id));
+      if (d.worn === g.id) d.worn = null;
+      d.ton = +Math.min(1e6, d.ton + net).toFixed(2);
+      if (!g.gr) { d.profit = +((+d.profit || 0) + pl).toFixed(2); d.flips = (d.flips | 0) + 1; if (pl > (+d.best || 0)) d.best = pl; }
+      d.vol = +(vol + g.price).toFixed(2);
+      d.hist = [{ t: 'Продажа ' + g.col + ' #' + g.serial, a: '+' + f2(net), c: 'emerald', time: now }, ...(Array.isArray(d.hist) ? d.hist : [])].slice(0, 60);
+      const line = g.col + ' #' + g.serial + ' купили за ' + f2(g.price) + ' GRAM (' + (pl >= 0 ? '+' : '') + f2(pl) + ')';
+      msgs.push('Твой ' + line); away.push('Продано: ' + line);
+      changed = true;
+    }
+    d.offers = (Array.isArray(d.offers) ? d.offers : []).filter(o => o && o.exp > now);
+    const cand = d.inv.filter(g => g && !g.base && g.fv > 0 && !d.offers.some(o => o.gid === g.id));
+    if (cand.length && d.offers.length < 4 && Math.random() < 0.12 * Math.min(4, mins / 5)) {
+      const g = pick(cand), bot = pick(BOTS), price = +(num(g.fv, 0, 1e7) * (0.84 + Math.random() * 0.16)).toFixed(2);
+      d.offers.unshift({ oid: now + Math.floor(Math.random() * 999), gid: g.id, bot, price, exp: now + 3600e3 });
+      msgs.push('Новый оффер: ' + bot + ' предлагает ' + f2(price) + ' GRAM за ' + g.col + ' #' + g.serial + '. Оффер действует час.');
+      away.push('Новый оффер на ' + g.col + ' #' + g.serial);
+      changed = true;
+    }
+    if (d.wheelAt > 0 && now >= d.wheelAt + 864e5 && !d.wn) {
+      d.wn = 1; changed = true;
+      msgs.push('Колесо удачи снова доступно — крути бесплатно!');
+    }
+    if (!changed) continue;
+    d.rev = (Number(d.rev) || 0) + 1;
+    d.away = [...(Array.isArray(d.away) ? d.away : []), ...away].slice(-10);
+    const worth = (parse(row.profile) || {}).worth || 0;
+    await env.DB.prepare('UPDATE saves SET data = ?, profile = ? WHERE user_id = ?').bind(JSON.stringify(d), JSON.stringify(buildProfile(d, worth)), row.user_id).run();
+    if (row.tg_id && d.notif !== false && msgs.length) {
+      const text = msgs.length > 3 ? msgs.slice(0, 3).join('\n') + '\nи ещё ' + (msgs.length - 3) + '…' : msgs.join('\n\n');
+      await tgSend(env, row.tg_id, text);
+    }
+  }
+  for (let i = 0; i < marks.length; i += 50) await env.DB.batch(marks.slice(i, i + 50));
+}
+
 async function route(req, env, url) {
   const path = url.pathname.replace(/\/+$/, ''), m = req.method;
 
   if (path === '/api/register' && m === 'POST') return register(req, env);
   if (path === '/api/login' && m === 'POST') return login(req, env);
 
+  if (path === '/api/config' && m === 'GET') return json({ bot: appLink(env, ''), notify: !!env.BOT_TOKEN, bonus: REF_BONUS });
+  if (path === '/api/tglink' && m === 'POST') {
+    const a = await authed(req, env); if (a.res) return a.res;
+    return tglink(req, env, a.u);
+  }
+  if (path === '/api/refstats' && m === 'GET') {
+    const a = await authed(req, env); if (a.res) return a.res;
+    return refstats(env, a.u);
+  }
   if (path === '/api/me' && m === 'GET') {
     const a = await authed(req, env); if (a.res) return a.res;
     return json({ username: a.u.username });
@@ -456,5 +615,8 @@ export default {
     } catch (e) {
       return err('Ошибка сервера', 500);
     }
+  },
+  async scheduled(event, env, ctx) {
+    if (env.DB) ctx.waitUntil(cron(env).catch(() => {}));
   }
 };

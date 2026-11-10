@@ -546,6 +546,7 @@ img{border-radius:inherit}
     <div id="pres" style="margin-top:6px"></div>
   </div>
   <div class="tg-sec" style="padding:12px 14px" id="p-acc"></div>
+  <div class="tg-sec"><div class="tg-line row sb" onclick="openRef()"><span><b>Пригласить друзей</b><small>+10 GRAM тебе и другу</small></span><span class="blue" style="font-size:20px">›</span></div></div>
   <div class="tg-sec">
     <div class="tg-line" onclick="copyTxt(S.prof.bio)"><b id="p-bio"></b><small>О себе</small></div>
     <div class="tg-line" onclick="copyTxt('@'+S.prof.user)"><b class="blue" id="p-user"></b><small>Имя пользователя</small></div>
@@ -1940,6 +1941,7 @@ function renderGames(){
   const left=(S.wheelAt||0)+864e5-Date.now(),can=left<=0,n=WHEEL.length,seg=360/n;
   const conic=WHEEL.map((w,i)=>`${WCOL[i]} ${i*seg}deg ${(i+1)*seg}deg`).join(',');
   setHTML($('games'),`
+  <div class="gcard" onclick="openRef()"><span class="gi" style="background:#2f8a55"><svg viewBox="0 0 24 24" fill="#fff"><path d="M9 11a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-7 1.7-7 4.5V20h14v-2.5C16 14.7 12.3 13 9 13zm10-5V5h-2v3h-3v2h3v3h2v-3h3V8z"/></svg></span><span style="flex:1"><b>Пригласи друга</b><span class="mut">+10 GRAM тебе и другу</span></span><span class="blue" style="font-size:22px">›</span></div>
   <div class="gcard" onclick="openCraftCat()"><span class="gi" style="background:#6a2fd6"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M14.5 3.5c3.2.2 5.8 2.6 6.2 5.8M3.5 20.5l11-11M8.5 4.5l11 11"/></svg></span><span style="flex:1"><b>Крафт</b><span class="mut">Обычный подарок → коллекционный</span></span><span class="blue" style="font-size:22px">›</span></div>
   ${evLive()?`<div class="gcard" onclick="go('event')"><span class="gi" style="background:#ff4f8b"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2.1 5.4L20 8l-4.5 3.8L17 18l-5-3.2L7 18l1.5-6.2L4 8l5.9-.6z"/></svg></span><span style="flex:1"><b>Ивент GTA VI</b><span class="mut">Задания и награды</span></span><span class="blue" style="font-size:22px">›</span></div>`:''}
   <div class="panel" style="margin-top:4px;text-align:center"><b style="font-size:17px">Колесо удачи</b><div class="mut" style="margin-top:3px">Бесплатно раз в 24 часа</div>
@@ -1949,7 +1951,7 @@ function renderGames(){
 function spinWheel(){
   if(wBusy||(S.wheelAt||0)+864e5>Date.now())return;
   wBusy=true;const n=WHEEL.length,seg=360/n,i=wpick(WHEEL,2);
-  S.wheelAt=Date.now();save();
+  S.wheelAt=Date.now();S.wn=0;save();
   const target=360-(i+.5)*seg+rnd(-seg*.35,seg*.35);
   wAng=wAng-(wAng%360)+360*6+target;
   const wd=$('wd');wd.style.transform=`rotate(${wAng}deg)`;wd.querySelectorAll('b').forEach(b=>b.style.opacity=0);
@@ -1980,6 +1982,7 @@ function renderWallet(){
 }
 function openSettings(){
   $('sheet').innerHTML=`<div class="sbody"><div class="shead"><b>Настройки</b><button class="xb" onclick="closeModal()">${XIC}</button></div>
+  <div class="lrow" onclick="toggleNotif();openSettings()"><span><b style="font-size:15px;font-weight:600;display:block">Уведомления в Telegram</b><span class="mut" style="font-size:12px">Продажи, офферы и колесо, пока тебя нет в игре</span></span><span class="mut">${S.notif===false?'Выкл':'Вкл'}</span></div>
   <div class="lrow" onclick="toggleHx();openSettings()"><b style="font-size:15px;font-weight:600">Вибрация</b><span class="mut">${hxOn?'Вкл':'Выкл'}</span></div>
   <div class="lrow" onclick="toggleSound();openSettings()"><b style="font-size:15px;font-weight:600">Звук</b><span class="mut">${snd?'Вкл':'Выкл'}</span></div>
   <div class="lrow" onclick="toggleImg();openSettings()"><b style="font-size:15px;font-weight:600">Изображения подарков</b><span class="mut">${UI.render==='CDN'?'Вкл':'Выкл'}</span></div>
@@ -2076,7 +2079,7 @@ async function api(path,opt){
 }
 function validState(d){return d&&typeof d==='object'&&typeof d.ton==='number'&&Array.isArray(d.inv)&&Array.isArray(d.market)}
 function calcWorth(){return +(S.ton+S.inv.reduce((s,g)=>s+fair(g),0)).toFixed(2)}
-function slimState(){const o=Object.assign({},S);o.market=S.market.filter(g=>g.mine);o.feed=[];o.ackq=[];return o}
+function slimState(){const o=Object.assign({},S);o.inv=S.inv.map(g=>g.base?g:Object.assign({},g,{fv:fair(g),ch:g.listed?+chanceFor(ratioOf(g,g.price)).toFixed(4):0}));o.market=o.inv.filter(g=>g.listed);o.feed=[];o.ackq=[];return o}
 function sigOf(){return [S.ton,S.profit,S.flips,S.worn,S.stars,S.ev&&S.ev.earned,S.pinned.join(),JSON.stringify(S.prof),S.inv.map(g=>g.id+':'+g.serial+':'+(g.listed?g.price:0)).join()].join('|')}
 function setSync(v){SYNC=v;if(UI.tab==='profile')renderAcc()}
 function cloudSoon(){if(!TOKEN||!CLOUD_READY||_cloudT)return;_cloudT=setTimeout(()=>{_cloudT=0;pushCloud()},6000)}
@@ -2085,13 +2088,56 @@ async function pushCloud(force){
   const sg=sigOf();if(!force&&sg===LAST_SIG&&Date.now()-LAST_PUSH<120000)return;
   _cloudBusy=true;const sent=(S.ackq||[]).slice(0,50);
   try{await api('/save',{method:'PUT',body:{data:slimState(),worth:calcWorth(),ack:sent}});S.ackq=(S.ackq||[]).filter(i=>!sent.includes(i));LAST_SIG=sg;LAST_PUSH=Date.now();setSync(1)}
-  catch(e){if(e.status===401)logoutLocal(true);else if(e.status===403)bannedOut(e.message);else if(e.status===409){toast(escH(e.message),'bad');CLOUD_READY=false;setTimeout(syncDown,300)}else if(e.status!==429)setSync(0)}
+  catch(e){if(e.status===401)logoutLocal(true);else if(e.status===403)bannedOut(e.message);else if(e.status===409){if(e.message!=='stale')toast(escH(e.message),'bad');CLOUD_READY=false;setTimeout(syncDown,300)}else if(e.status!==429)setSync(0)}
   _cloudBusy=false;
 }
-function applyCloud(d){S=d;patchState();if(ACC)S.prof.user=ACC;refillMarket();LAST_SIG=sigOf();LAST_PUSH=Date.now();save();refresh()}
+function applyCloud(d){S=d;patchState();if(ACC)S.prof.user=ACC;refillMarket();LAST_SIG=sigOf();LAST_PUSH=Date.now();
+  if(Array.isArray(S.away)&&S.away.length){const a=S.away.slice(-5);S.away=[];a.forEach((m,i)=>setTimeout(()=>toast(escH(m),'ok'),400+i*500));setTimeout(()=>pushCloud(true),2500)}
+  save();refresh()}
+async function pullIfNewer(){
+  if(!TOKEN||!CLOUD_READY||_cloudBusy)return;
+  try{const c=await api('/load');if(c.data&&validState(c.data)&&(Number(c.data.rev)||0)>(Number(S.rev)||0))applyCloud(c.data);if(c.grants&&c.grants.length)applyGrants(c.grants)}catch(e){}
+}
+let _tgl=0;
+async function tgLink(){
+  const tg=window.Telegram&&Telegram.WebApp;if(!TOKEN||_tgl||!tg||!tg.initData)return;_tgl=1;
+  try{const r=await api('/tglink',{method:'POST',body:{initData:tg.initData}});UI.tgLinked=!!r.linked;
+    if(r.busy)toast('Этот Telegram уже привязан к другому аккаунту','bad');
+    if(r.linked)askWrite();
+    if(r.refPaid)setTimeout(pullGrants,600);
+  }catch(e){_tgl=0}
+}
+function askWrite(force){
+  try{const tg=window.Telegram&&Telegram.WebApp;if(!tg||!tg.initData||S.notif===false||!tg.requestWriteAccess)return;
+    if(!force&&localStorage.getItem('pr_wa'))return;
+    tg.requestWriteAccess(ok=>{try{localStorage.setItem('pr_wa',ok?'1':'0')}catch(e){}if(force&&!ok)toast('Без разрешения бот не сможет писать тебе','bad')});
+  }catch(e){}
+}
+function toggleNotif(){S.notif=S.notif===false;if(S.notif)askWrite(true);save();pushCloud(true)}
+let REF=null,_refAt=0;
+async function loadRef(){if(!TOKEN||Date.now()-_refAt<20000)return REF;try{REF=await api('/refstats');_refAt=Date.now()}catch(e){}return REF}
+function refLink(){return (REF&&REF.link)||(location.origin+'/?ref='+encodeURIComponent(ACC||''))}
+async function openRef(){
+  sfx.click();
+  if(!TOKEN){showAuth('register');return}
+  $('sheet').innerHTML='<div class="sbody"><div class="empty">Загрузка…</div></div>';openModal();
+  await loadRef();const r=REF||{invited:0,paid:0,bonus:10},link=refLink();
+  $('sheet').innerHTML=`<div class="sbody"><div class="shead"><b>Пригласи друга</b><button class="xb" onclick="closeModal()">${XIC}</button></div>
+  <div class="panel" style="text-align:center;padding:20px 14px"><div class="big" style="font-size:30px">+${r.bonus} GRAM</div><div class="mut" style="margin-top:6px;line-height:1.5">тебе и другу, когда он зарегистрируется<br>и откроет игру в Telegram</div></div>
+  <div class="stat2" style="margin-bottom:10px"><div class="panel"><div class="mut">Приглашено</div><div class="big" style="font-size:22px">${r.invited}</div></div><div class="panel"><div class="mut">Заработано</div><div class="big green" style="font-size:22px">+${r.paid*r.bonus}</div></div></div>
+  <div class="panel row sb" style="padding:10px 12px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px" class="blue">${escH(link)}</span><button class="pill" onclick="copyTxt('${escH(link)}')">Копировать</button></div>
+  <button class="btn big" onclick="shareRef()">Пригласить</button>
+  <p class="mut" style="text-align:center;margin-top:12px;line-height:1.5">Бонус начисляется один раз за каждый новый Telegram-аккаунт.</p></div>`;
+}
+function shareRef(){
+  const link=refLink(),text='Залетай в Portals Market — торгуем подарками Telegram. По моей ссылке получим по 10 GRAM!';
+  try{const tg=window.Telegram&&Telegram.WebApp;if(tg&&tg.initData&&tg.openTelegramLink){tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent(link)+'&text='+encodeURIComponent(text));return}}catch(e){}
+  if(navigator.share){navigator.share({text,url:link}).catch(()=>{});return}
+  copyTxt(link);
+}
 async function syncDown(){
   if(!TOKEN)return;
-  try{const c=await api('/load');if(c.data&&validState(c.data))applyCloud(c.data);if(c.grants&&c.grants.length)setTimeout(()=>applyGrants(c.grants),0);CLOUD_READY=true;if(!(c.data&&validState(c.data)))pushCloud(true);else setSync(1)}
+  try{const c=await api('/load');if(c.data&&validState(c.data))applyCloud(c.data);if(c.grants&&c.grants.length)setTimeout(()=>applyGrants(c.grants),0);CLOUD_READY=true;if(!(c.data&&validState(c.data)))pushCloud(true);else setSync(1);tgLink()}
   catch(e){if(e.status===401)logoutLocal(true);else if(e.status===403)bannedOut(e.message);else setSync(0)}
 }
 function logoutLocal(expired){
@@ -2123,10 +2169,12 @@ async function submitAuth(){
   if(p.length<6){er.textContent='Пароль: минимум 6 символов';return}
   btn.disabled=true;
   try{
-    const r=await api(reg?'/register':'/login',{method:'POST',body:{username:u,password:p}});
+    let rf='';try{rf=localStorage.getItem('pr_ref')||''}catch(e){}
+    const r=await api(reg?'/register':'/login',{method:'POST',body:{username:u,password:p,ref:reg?rf:''}});
+    if(reg){try{localStorage.removeItem('pr_ref')}catch(e){}}
     TOKEN=r.token;ACC=r.username;
     try{localStorage.setItem('pr_token',TOKEN);localStorage.setItem('pr_acc',ACC);localStorage.removeItem('pr_guest')}catch(e){}
-    if(reg){S.prof.user=ACC;CLOUD_READY=true;await pushCloud(true)}else{CLOUD_READY=false;await syncDown()}
+    if(reg){S.prof.user=ACC;CLOUD_READY=true;await pushCloud(true);tgLink()}else{CLOUD_READY=false;await syncDown()}
     closeAuth(false);go('market');toast(reg?'Добро пожаловать, @'+ACC:'С возвращением, @'+ACC,'ok');
   }catch(e){er.textContent=e.message||'Ошибка';btn.disabled=false}
 }
@@ -2202,7 +2250,7 @@ function applyGrants(list){
     if(!gr||!Number.isInteger(gr.id)||S.ackq.includes(gr.id))continue;
     S.ackq.push(gr.id);
     if(gr.kind==='reset-stats'){S.profit=0;S.flips=0;S.best=0;S.vol=0;S.spent=0;rst++;log('Статистика сброшена','0.00','rose')}
-    else if(gr.kind==='ton'){const a=Number(gr.amount);if(!Number.isFinite(a)||!a)continue;S.ton=+Math.max(0,S.ton+a).toFixed(2);ton+=a;log('Начисление',(a>=0?'+':'')+f2(a),a>=0?'emerald':'rose')}
+    else if(gr.kind==='ton'){const a=Number(gr.amount);if(!Number.isFinite(a)||!a)continue;S.ton=+Math.max(0,S.ton+a).toFixed(2);if(gr.why==='ref'){toast(gr.who?`@${escH(gr.who)} пришёл по твоей ссылке: +${f2(a)} GRAM`:`Бонус за приглашение: +${f2(a)} GRAM`,'ok');log(gr.who?'Бонус: пришёл @'+gr.who:'Бонус за приглашение','+'+f2(a),'emerald');_refAt=0;continue}ton+=a;log('Начисление',(a>=0?'+':'')+f2(a),a>=0?'emerald':'rose')}
     else if(gr.kind==='stars'){const a=Math.floor(Number(gr.amount));if(!Number.isFinite(a)||!a)continue;S.stars=Math.max(0,(S.stars||0)+a)}
     else if(gr.kind==='gift'){
       if(!COLS[gr.col])continue;
@@ -2327,13 +2375,17 @@ setImg('bn-pepe','plushpepe',1);setImg('pr-pepe','plushpepe',1);
 try{const tg=window.Telegram&&Telegram.WebApp;if(tg&&tg.initData){tg.BackButton.onClick(onBack);if(tg.SettingsButton){tg.SettingsButton.show();tg.SettingsButton.onClick(openSettings)}
   const u=tg.initDataUnsafe&&tg.initDataUnsafe.user;if(u&&S.prof.name==='Трейдер'&&u.first_name){S.prof.name=String(u.first_name).replace(/[<>&"]/g,'').slice(0,24)}}}catch(e){}
 window.addEventListener('pagehide',save);window.addEventListener('beforeunload',save);
-document.addEventListener('visibilitychange',()=>{if(document.hidden){save();pushCloud()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){save();pushCloud()}else pullIfNewer()});
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 setInterval(tick,3000);
 setInterval(()=>{evInit();if(UI.tab==='games'&&!wBusy)renderGames()},30000);
 setInterval(()=>{if(TOKEN&&!CLOUD_READY)syncDown()},10000);
 setInterval(()=>pullGrants(),20000);
+(function(){let r='';try{const tg=window.Telegram&&Telegram.WebApp,sp=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param;if(sp&&/^ref_/.test(sp))r=sp.slice(4)}catch(e){}
+  try{const q=new URLSearchParams(location.search).get('ref');if(q)r=q}catch(e){}
+  if(/^[A-Za-z0-9_]{3,20}$/.test(r)&&r!==ACC){try{localStorage.setItem('pr_ref',r)}catch(e){}if(!TOKEN){try{localStorage.removeItem('pr_guest')}catch(e){}}}})();
 initAuth();
+if(!TOKEN&&(function(){try{return localStorage.getItem('pr_ref')}catch(e){return 0}})())setTimeout(()=>{if(!TOKEN)showAuth('register')},50);
 </script>
 </body>
 </html>
