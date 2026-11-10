@@ -398,6 +398,7 @@ img{border-radius:inherit}
 .tgapp .scroll{padding-top:calc(var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
 .tgfs .toprow{min-height:44px}
 .hfull,.hblur{image-rendering:auto}
+.scroll{overflow-anchor:none}
 </style>
 </head>
 <body>
@@ -1282,6 +1283,7 @@ function declineOffer(oid){S.offers=S.offers.filter(x=>x.oid!==oid);sfx.click();
 function chanceFor(r){return r<=.9?.5:r<=1?.22:r<=1.08?.09:r<=1.2?.03:r<=1.4?.008:r<=1.8?.002:0}
 function trendOf(c){const h=S.fh[c];return +((h[h.length-1]/h[0]-1)*100).toFixed(1)}
 function tick(){
+  UI.soft=true;
   S.market.forEach(g=>{g.nw=0;g.fl=0});
   COL_NAMES.forEach(c=>{const d=(Math.random()-.5)*.014;S.floors[c]=+clamp(S.floors[c]*(1+d),COLS[c].floor*.5,COLS[c].floor*3).toFixed(2);const h=S.fh[c];h.push(S.floors[c]);if(h.length>30)h.shift()});
   if(Math.random()<.05){
@@ -1325,7 +1327,7 @@ function tick(){
     if(g.price<fair(g)*.9)feed(`${g.seller} выставил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
     else if(si.m>=2)feed(`Редкий номер: <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
   }
-  save();refresh();
+  save();UI.soft=true;try{refresh()}finally{UI.soft=false}
 }
 
 function topRow(){
@@ -1386,6 +1388,12 @@ function openCraftCat(col){
 
 function renderList(el,items,keyFn,htmlFn,emptyHtml){
   if(!items.length){el._keyed=null;setHTML(el,emptyHtml);return}
+  const sc=el.closest('.scroll'),live=!!(el._keyed&&el._keyed.size&&el._h==null&&el.offsetParent!==null&&sc);
+  const before=new Map();let anchorK=null,anchorTop=0;
+  if(live){
+    const st=sc.getBoundingClientRect().top;
+    el._keyed.forEach((n,k)=>{const r=n.getBoundingClientRect();if(r.bottom>-300&&r.top<innerHeight+300)before.set(k,r);if(anchorK==null&&r.bottom>st+40){anchorK=k;anchorTop=r.top}});
+  }
   if(!el._keyed||el._h!=null){el.innerHTML='';el._h=null;el._keyed=new Map()}
   const old=el._keyed,next=new Map(),fresh=!old.size;let n=0;
   items.forEach((it,i)=>{
@@ -1400,8 +1408,40 @@ function renderList(el,items,keyFn,htmlFn,emptyHtml){
     next.set(k,node);
     const cur=el.children[i];if(cur!==node)el.insertBefore(node,cur||null);
   });
-  const keep=new Set(next.values());[...el.children].forEach(ch=>{if(!keep.has(ch))ch.remove()});
+  old.forEach((node,k)=>{
+    if(next.has(k))return;
+    const r=before.get(k);
+    if(r&&r.bottom>0&&r.top<innerHeight){
+      node.style.cssText+=`;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:5;pointer-events:none`;
+      document.body.appendChild(node);
+      node.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.92)'}],{duration:340,easing:'cubic-bezier(.4,0,1,1)',fill:'forwards'}).onfinish=()=>node.remove();
+    }else node.remove();
+  });
   el._keyed=next;
+  if(!live)return;
+  if(anchorK!=null&&next.has(anchorK)){const d=next.get(anchorK).getBoundingClientRect().top-anchorTop;if(Math.abs(d)>.5)sc.scrollTop+=d}
+  next.forEach((node,k)=>{
+    const a=before.get(k);if(!a)return;
+    const b=node.getBoundingClientRect(),dx=a.left-b.left,dy=a.top-b.top;
+    if(Math.abs(dx)+Math.abs(dy)<1)return;
+    node.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}],{duration:460,easing:'cubic-bezier(.2,.9,.3,1)'});
+  });
+}
+function softOrder(el,all,lim){
+  if(!el._keyed||!el._keyed.size||el._h!=null)return all.slice(0,lim);
+  const sc=el.closest('.scroll'),st=sc?sc.getBoundingClientRect().top:0;
+  const byId=new Map(all.map((g,i)=>[g.id,i])),keep=[];
+  let firstVis=-1;
+  el._keyed.forEach((node,k)=>{if(!byId.has(k))return;keep.push(k);if(firstVis<0&&node.getBoundingClientRect().bottom>st+40)firstVis=keep.length-1});
+  if(firstVis<0)firstVis=keep.length;
+  const kset=new Set(keep);
+  for(const g of all.slice(0,lim)){
+    if(kset.has(g.id))continue;
+    const s=byId.get(g.id);let pos=keep.findIndex(k=>byId.get(k)>s);if(pos<0)pos=keep.length;
+    if(pos<=firstVis)continue;
+    keep.splice(pos,0,g.id);kset.add(g.id);
+  }
+  return keep.slice(0,lim).map(k=>all[byId.get(k)]);
 }
 function giftCard(g,mode){
   if(g.base)return `<div class="card"><div class="art" style="background:#2e3540" onclick="openCraft(${g.id})"><span class="ini">${ini(g.col)}</span><span class="badge tl">Обычный</span></div><div class="ctitle">${g.col}</div><div class="cid">не улучшен</div><button class="btn purple" onclick="openCraft(${g.id})">Крафт</button></div>`;
@@ -1443,7 +1483,7 @@ function renderMarket(){
   $('fp-bdn').textContent=UI.bd!=='ALL'?1:0;$('fp-bd').classList.toggle('on',UI.bd!=='ALL');
   $('fp-mdn').textContent=UI.tier!=='ALL'?1:0;$('fp-md').classList.toggle('on',UI.tier!=='ALL');
   $('fx').classList.toggle('off',!(nF||UI.pq!=null||UI.q.trim()));
-  const base=visibleBase(),all=visible(),lim=UI.lim||60,l=all.slice(0,lim),cap=priceCap(base);
+  const base=visibleBase(),all=visible(),lim=UI.lim||60,l=UI.soft?softOrder($('mgrid'),all,lim):all.slice(0,lim),cap=priceCap(base);
   $('more').classList.toggle('hidden',all.length<=lim);$('more').textContent='Показать ещё';
   const aff=base.filter(g=>g.price<=S.ton).length,p=UI.pq!=null?UI.pq:(base.length?aff/base.length*100:0);
   if(cap!=null){$('bal-t').textContent='до '+f2(cap)+' GRAM';$('bal-s').textContent=all.length+' '+plural(all.length,'подарок','подарка','подарков')}
