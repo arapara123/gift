@@ -571,7 +571,7 @@ html,body{background:#0b0c0d;-webkit-font-smoothing:antialiased;-moz-osx-font-sm
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Результат считается в TON: обычно ±2…4 TON, реже ±5…10, совсем редко +20…30 или −15…25 TON. Сначала выпадает фон, потом узор, потом модель, номер выпадает случайно. Джекпот (+120…+150 TON, красивый номер вроде #777) выпадает примерно раз на 5000 улучшений.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Результат считается в TON и зависит от цены подарка: у дешёвых обычно ±1…3 TON, у дорогих (вроде Pepe) ±5…10 TON, большие суммы выпадают всё реже. Сначала выпадает фон, потом узор, потом модель, номер выпадает случайно. Джекпот (красивый номер вроде #777) выпадает примерно раз на 5000 улучшений.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -681,21 +681,6 @@ function beep(f,d=.08,t='sine',v=.08,at=0){if(!snd)return;try{ac=ac||new (window
 const sfx={click:()=>beep(420,.04),buy:()=>{beep(440,.1,'triangle',.12);beep(660,.12,'triangle',.12,.07)},sale:()=>[587,880,1175].forEach((f,i)=>beep(f,.22,'sine',.12,i*.07)),offer:()=>{beep(523,.14);beep(659,.16,'sine',.08,.09)},tick:()=>beep(900,.03,'sine',.04)};
 function toggleSound(){snd=!snd;try{localStorage.setItem('pr_snd',snd?'1':'0')}catch(e){}$('snd').textContent=snd?'Звук':'Тихо'}
 function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
-/* мягкий тактильный отклик при нажатии, как в Portals:
-   в Telegram — родной «soft» impact, в обычном браузере на Android — короткая вибрация (iOS Safari вибрацию не поддерживает) */
-let _tapT=0;
-function tap(){
-  const n=Date.now();if(n-_tapT<40)return;_tapT=n;
-  try{
-    const h=window.Telegram&&Telegram.WebApp&&Telegram.WebApp.HapticFeedback;
-    if(h&&h.impactOccurred){h.impactOccurred('soft');return}
-  }catch(e){}
-  try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}
-}
-document.addEventListener('pointerdown',e=>{
-  const t=e.target&&e.target.closest&&e.target.closest('button,.art,.urow,.tg-line,.hero,.estg,.trk,select');
-  if(t&&!t.disabled)tap();
-},{passive:true});
 function confetti(n=70){
   const c=document.createElement('canvas');c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:98';
   c.width=innerWidth;c.height=innerHeight;document.body.appendChild(c);const x=c.getContext('2d');
@@ -867,7 +852,7 @@ function freshState(){return{
 const UI={tab:'market',col:'ALL',q:'',sort:'PRICE_ASC',invF:'ALL',tier:'ALL',bd:'ALL',upId:null,upBusy:false,ptab:'gifts',
   render:(function(){try{return localStorage.getItem('pr_render')||'CDN'}catch(e){return'CDN'}})()};
 const TRK={t:0,c:0}; /* t — целевая позиция ползунка цены, c — текущая (плавно догоняет цель) */
-function save(){S.seen=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}cloudSoon()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}cloudSoon()}
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
 function patchState(){
   const stale=S.mv!==7;
@@ -1291,37 +1276,16 @@ function instantSell(id){
   completeSale(g,pay,fair(g)*.9,'Мгновенная скупка');
   closeModal();
 }
-function completeSale(g,net,gross,who,quiet){
+function completeSale(g,net,gross,who){
   const pl=+(net-g.bought).toFixed(2);
   S.inv=S.inv.filter(x=>x.id!==g.id);S.market=S.market.filter(x=>x.id!==g.id);S.offers=S.offers.filter(o=>o.gid!==g.id);
   S.pinned=S.pinned.filter(x=>x!==g.id);if(S.worn===g.id)S.worn=null;
   S.ton=+(S.ton+net).toFixed(2);if(!g.gr){S.profit=+(S.profit+pl).toFixed(2);S.flips++;if(pl>S.best)S.best=pl}S.vol=+(S.vol+gross).toFixed(2);
-  if(!quiet){sfx.sale();vib([20,40,20]);if(pl>0)confetti(pl>20?110:55)}
+  sfx.sale();vib([20,40,20]);if(pl>0)confetti(pl>20?110:55);
   log(`Продажа ${g.col} #${g.serial}`,'+'+f2(net),'emerald');
   feed(` ${who}: <b>${g.col} #${g.serial}</b> за <b>${f2(gross)}</b> TON (${pl>=0?'+':''}${f2(pl)})`);
-  if(quiet)return;
   toast(` Продано ${g.col} #${g.serial}: ${pl>=0?'+':''}${f2(pl)} TON чистыми`,pl>=0?'ok':'bad');
   refresh();
-}
-/* продажи, пока игрока не было в игре: за время отсутствия (до 24 ч) каждый выставленный лот
-   получает шанс продаться — тот же шанс, что и онлайн, но за «тик» в 15 секунд */
-function offlineSales(){
-  if(!S||!S.seen){if(S)S.seen=Date.now();return 0}
-  const el=Math.min(Date.now()-S.seen,24*3600e3);
-  S.seen=Date.now();
-  if(el<30000)return 0;
-  const n=el/15000;let cnt=0,sum=0;
-  for(const g of S.inv.filter(x=>x.listed&&!x.base)){
-    const f=fair(g);if(!(f>0))continue;
-    const p=chanceFor(g.price/f);if(p<=0)continue;
-    if(Math.random()<1-Math.pow(1-p,n)){
-      const b=pick(BOTS),net=+(g.price*(1-feeRate())).toFixed(2);
-      S.cashback=+(S.cashback+g.price*feeRate()*.2).toFixed(2);
-      completeSale(g,net,g.price,b[0],true);cnt++;sum+=net;
-    }
-  }
-  if(cnt){save();toast(` Пока вас не было, продано лотов: ${cnt} · +${f2(sum)} TON`,'ok');if(typeof sfx!=='undefined')sfx.sale()}
-  return cnt;
 }
 function claimCashback(){
   if(S.cashback<.01){toast('Кэшбэк пока пуст — он копится с покупок');return}
@@ -1666,24 +1630,31 @@ function upMult(c){
 }
 /* «кейс»: 30% — плюс, 70% — минус. Каждая строка: [шанс, мин. множитель, макс. множитель] от вложенного.
    Чаще всего средний плюс (×1–×2.5) и средний минус (×0.55–×0.99), а большие иксы всё реже. */
-/* экономика в абсолютных TON: результат апгрейда — это «плюс/минус N TON» к вложенному.
-   [шанс, знак, от, до, джекпот]. Плюс — 30%, минус — 70%. Обычно ±2…4 TON, реже до ±10, совсем редко +20…+30,
-   а джекпот (+120…+150 TON, красивый номер) — ровно 1 раз на 5000 апгрейдов (0.02%). */
+/* экономика в абсолютных TON: результат апгрейда — «плюс/минус N TON» к вложенному.
+   Шанс плюса ВСЕГДА 30%, минуса 70% — у всех коллекций одинаково. От цены коллекции зависит только размер суммы:
+   дешёвые (флор до 10 TON): обычно ±1…3, реже ±3…5, редко ±5…9;
+   средние — масштаб ×1.5…×2.5; дорогие (Pepe и т.п.): обычно ±5…10, реже до ±20 и выше.
+   [шанс, знак, от, до, джекпот] — значения для масштаба ×1 */
 const UP_TIERS=[
-  [.18,1,2,4],[.07,1,3,6],[.035,1,5,10],[.014,1,10,20],[.0008,1,20,30],[.0002,1,120,150,1],   /* плюс: 30% */
-  [.46,-1,2,4],[.16,-1,3,6],[.07,-1,5,10],[.0099,-1,10,15],[.0001,-1,15,25]                   /* минус: 70% */
+  [.1998,1,1,3],[.07,1,3,5],[.025,1,5,9],[.004,1,9,15],[.001,1,15,25],[.0002,1,120,150,1],   /* плюс: 30% */
+  [.50,-1,1,3],[.14,-1,3,5],[.045,-1,5,9],[.012,-1,9,15],[.003,-1,15,20]                       /* минус: 70% */
 ];
-function rollUp(invested){
-  let r=Math.random();
+/* множитель размера по флору коллекции: чем дороже подарок, тем больше «шаг» плюса/минуса */
+function upScale(c){
+  const f=(COLS[c]&&COLS[c].floor)||5;
+  return f<=10?1:f<=30?1.4:f<=100?2:f<=400?3:f<=2000?4:5;
+}
+function rollUp(invested,col){
+  const k=upScale(col);let r=Math.random();
   for(const t of UP_TIERS){
     if(r<t[0]){
-      const x=t[2]+Math.random()*(t[3]-t[2]);
+      const x=(t[2]+Math.random()*(t[3]-t[2]))*k;
       /* минус не может съесть больше, чем вложено (оставляем минимум 0.5 TON) */
       return{jp:!!t[4],target:+Math.max(.5,invested+t[1]*x).toFixed(2)};
     }
     r-=t[0];
   }
-  return{jp:false,target:+Math.max(.5,invested-1).toFixed(2)};
+  return{jp:false,target:+Math.max(.5,invested-1*k).toFixed(2)};
 }
 function upCost(c){return +(S.floors[c]*Math.max(upMult(c)-BASE_BUY,.5)).toFixed(2)}
 function baseCost(c){return +(S.floors[c]*BASE_BUY).toFixed(2)}
@@ -1745,7 +1716,7 @@ function doUpgrade(){
      Потолок плюса: не больше +100% вложенного и не больше +2500 TON; у джекпота потолок только защитный (+50 000) */
   const invested=+(g.bought+cost).toFixed(2),sup=COLS[g.col].supply;
   const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
-  const roll=rollUp(invested);
+  const roll=rollUp(invested,g.col);
   const rs=roll.jp?rareForce(Math.min(sup,100000),used):0; /* джекпот: красивый номер */
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
   /* бросаем «кейс»: сначала выпадает множитель от вложенного (30% плюс / 70% минус),
@@ -1995,7 +1966,7 @@ async function pushCloud(force){
   _cloudBusy=false;
 }
 function applyCloud(d){
-  S=d;patchState();if(ACC)S.prof.user=ACC;refillMarket();offlineSales();
+  S=d;patchState();if(ACC)S.prof.user=ACC;refillMarket();
   LAST_SIG=sigOf();LAST_PUSH=Date.now();save();refresh();
 }
 async function syncDown(){
@@ -2279,7 +2250,7 @@ function refresh(){
   else if(UI.tab==='profile')renderProfile();
 }
 
-if(!load()){S=freshState();seedMarket();save()}else{patchState();offlineSales()}
+if(!load()){S=freshState();seedMarket();save()}else patchState();
 $('imgb').style.opacity=UI.render==='CDN'?1:.45;
 go('market');
 /* перетаскиваемый ползунок цены */
@@ -2302,7 +2273,7 @@ go('market');
 })();
 /* автосохранение: при любом изменении, при сворачивании и закрытии вкладки */
 window.addEventListener('pagehide',save);window.addEventListener('beforeunload',save);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else if(offlineSales()){refresh();pushCloud(true)}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 $('snd').textContent=snd?'Звук':'Тихо';
 setInterval(tick,3000);
