@@ -546,7 +546,6 @@ img{border-radius:inherit}
     <div id="pres" style="margin-top:6px"></div>
   </div>
   <div class="tg-sec" style="padding:12px 14px" id="p-acc"></div>
-  <div class="tg-sec"><div class="tg-line row sb" onclick="openRef()"><span><b>Пригласить друзей</b><small>+10 GRAM тебе и другу</small></span><span class="blue" style="font-size:20px">›</span></div></div>
   <div class="tg-sec">
     <div class="tg-line" onclick="copyTxt(S.prof.bio)"><b id="p-bio"></b><small>О себе</small></div>
     <div class="tg-line" onclick="copyTxt('@'+S.prof.user)"><b class="blue" id="p-user"></b><small>Имя пользователя</small></div>
@@ -1941,7 +1940,6 @@ function renderGames(){
   const left=(S.wheelAt||0)+864e5-Date.now(),can=left<=0,n=WHEEL.length,seg=360/n;
   const conic=WHEEL.map((w,i)=>`${WCOL[i]} ${i*seg}deg ${(i+1)*seg}deg`).join(',');
   setHTML($('games'),`
-  <div class="gcard" onclick="openRef()"><span class="gi" style="background:#2f8a55"><svg viewBox="0 0 24 24" fill="#fff"><path d="M9 11a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-7 1.7-7 4.5V20h14v-2.5C16 14.7 12.3 13 9 13zm10-5V5h-2v3h-3v2h3v3h2v-3h3V8z"/></svg></span><span style="flex:1"><b>Пригласи друга</b><span class="mut">+10 GRAM тебе и другу</span></span><span class="blue" style="font-size:22px">›</span></div>
   <div class="gcard" onclick="openCraftCat()"><span class="gi" style="background:#6a2fd6"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M14.5 3.5c3.2.2 5.8 2.6 6.2 5.8M3.5 20.5l11-11M8.5 4.5l11 11"/></svg></span><span style="flex:1"><b>Крафт</b><span class="mut">Обычный подарок → коллекционный</span></span><span class="blue" style="font-size:22px">›</span></div>
   ${evLive()?`<div class="gcard" onclick="go('event')"><span class="gi" style="background:#ff4f8b"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2l2.1 5.4L20 8l-4.5 3.8L17 18l-5-3.2L7 18l1.5-6.2L4 8l5.9-.6z"/></svg></span><span style="flex:1"><b>Ивент GTA VI</b><span class="mut">Задания и награды</span></span><span class="blue" style="font-size:22px">›</span></div>`:''}
   <div class="panel" style="margin-top:4px;text-align:center"><b style="font-size:17px">Колесо удачи</b><div class="mut" style="margin-top:3px">Бесплатно раз в 24 часа</div>
@@ -2104,7 +2102,6 @@ async function tgLink(){
   try{const r=await api('/tglink',{method:'POST',body:{initData:tg.initData}});UI.tgLinked=!!r.linked;
     if(r.busy)toast('Этот Telegram уже привязан к другому аккаунту','bad');
     if(r.linked)askWrite();
-    if(r.refPaid)setTimeout(pullGrants,600);
   }catch(e){_tgl=0}
 }
 function askWrite(force){
@@ -2114,27 +2111,6 @@ function askWrite(force){
   }catch(e){}
 }
 function toggleNotif(){S.notif=S.notif===false;if(S.notif)askWrite(true);save();pushCloud(true)}
-let REF=null,_refAt=0;
-async function loadRef(){if(!TOKEN||Date.now()-_refAt<20000)return REF;try{REF=await api('/refstats');_refAt=Date.now()}catch(e){}return REF}
-function refLink(){return (REF&&REF.link)||(location.origin+'/?ref='+encodeURIComponent(ACC||''))}
-async function openRef(){
-  sfx.click();
-  if(!TOKEN){showAuth('register');return}
-  $('sheet').innerHTML='<div class="sbody"><div class="empty">Загрузка…</div></div>';openModal();
-  await loadRef();const r=REF||{invited:0,paid:0,bonus:10},link=refLink();
-  $('sheet').innerHTML=`<div class="sbody"><div class="shead"><b>Пригласи друга</b><button class="xb" onclick="closeModal()">${XIC}</button></div>
-  <div class="panel" style="text-align:center;padding:20px 14px"><div class="big" style="font-size:30px">+${r.bonus} GRAM</div><div class="mut" style="margin-top:6px;line-height:1.5">тебе и другу, когда он зарегистрируется<br>и откроет игру в Telegram</div></div>
-  <div class="stat2" style="margin-bottom:10px"><div class="panel"><div class="mut">Приглашено</div><div class="big" style="font-size:22px">${r.invited}</div></div><div class="panel"><div class="mut">Заработано</div><div class="big green" style="font-size:22px">+${r.paid*r.bonus}</div></div></div>
-  <div class="panel row sb" style="padding:10px 12px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px" class="blue">${escH(link)}</span><button class="pill" onclick="copyTxt('${escH(link)}')">Копировать</button></div>
-  <button class="btn big" onclick="shareRef()">Пригласить</button>
-  <p class="mut" style="text-align:center;margin-top:12px;line-height:1.5">Бонус начисляется один раз за каждый новый Telegram-аккаунт.</p></div>`;
-}
-function shareRef(){
-  const link=refLink(),text='Залетай в Portals Market — торгуем подарками Telegram. По моей ссылке получим по 10 GRAM!';
-  try{const tg=window.Telegram&&Telegram.WebApp;if(tg&&tg.initData&&tg.openTelegramLink){tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent(link)+'&text='+encodeURIComponent(text));return}}catch(e){}
-  if(navigator.share){navigator.share({text,url:link}).catch(()=>{});return}
-  copyTxt(link);
-}
 async function syncDown(){
   if(!TOKEN)return;
   try{const c=await api('/load');if(c.data&&validState(c.data))applyCloud(c.data);if(c.grants&&c.grants.length)setTimeout(()=>applyGrants(c.grants),0);CLOUD_READY=true;if(!(c.data&&validState(c.data)))pushCloud(true);else setSync(1);tgLink()}
@@ -2169,9 +2145,7 @@ async function submitAuth(){
   if(p.length<6){er.textContent='Пароль: минимум 6 символов';return}
   btn.disabled=true;
   try{
-    let rf='';try{rf=localStorage.getItem('pr_ref')||''}catch(e){}
-    const r=await api(reg?'/register':'/login',{method:'POST',body:{username:u,password:p,ref:reg?rf:''}});
-    if(reg){try{localStorage.removeItem('pr_ref')}catch(e){}}
+    const r=await api(reg?'/register':'/login',{method:'POST',body:{username:u,password:p}});
     TOKEN=r.token;ACC=r.username;
     try{localStorage.setItem('pr_token',TOKEN);localStorage.setItem('pr_acc',ACC);localStorage.removeItem('pr_guest')}catch(e){}
     if(reg){S.prof.user=ACC;CLOUD_READY=true;await pushCloud(true);tgLink()}else{CLOUD_READY=false;await syncDown()}
@@ -2250,7 +2224,7 @@ function applyGrants(list){
     if(!gr||!Number.isInteger(gr.id)||S.ackq.includes(gr.id))continue;
     S.ackq.push(gr.id);
     if(gr.kind==='reset-stats'){S.profit=0;S.flips=0;S.best=0;S.vol=0;S.spent=0;rst++;log('Статистика сброшена','0.00','rose')}
-    else if(gr.kind==='ton'){const a=Number(gr.amount);if(!Number.isFinite(a)||!a)continue;S.ton=+Math.max(0,S.ton+a).toFixed(2);if(gr.why==='ref'){toast(gr.who?`@${escH(gr.who)} пришёл по твоей ссылке: +${f2(a)} GRAM`:`Бонус за приглашение: +${f2(a)} GRAM`,'ok');log(gr.who?'Бонус: пришёл @'+gr.who:'Бонус за приглашение','+'+f2(a),'emerald');_refAt=0;continue}ton+=a;log('Начисление',(a>=0?'+':'')+f2(a),a>=0?'emerald':'rose')}
+    else if(gr.kind==='ton'){const a=Number(gr.amount);if(!Number.isFinite(a)||!a)continue;S.ton=+Math.max(0,S.ton+a).toFixed(2);ton+=a;log('Начисление',(a>=0?'+':'')+f2(a),a>=0?'emerald':'rose')}
     else if(gr.kind==='stars'){const a=Math.floor(Number(gr.amount));if(!Number.isFinite(a)||!a)continue;S.stars=Math.max(0,(S.stars||0)+a)}
     else if(gr.kind==='gift'){
       if(!COLS[gr.col])continue;
@@ -2381,11 +2355,7 @@ setInterval(tick,3000);
 setInterval(()=>{evInit();if(UI.tab==='games'&&!wBusy)renderGames()},30000);
 setInterval(()=>{if(TOKEN&&!CLOUD_READY)syncDown()},10000);
 setInterval(()=>pullGrants(),20000);
-(function(){let r='';try{const tg=window.Telegram&&Telegram.WebApp,sp=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param;if(sp&&/^ref_/.test(sp))r=sp.slice(4)}catch(e){}
-  try{const q=new URLSearchParams(location.search).get('ref');if(q)r=q}catch(e){}
-  if(/^[A-Za-z0-9_]{3,20}$/.test(r)&&r!==ACC){try{localStorage.setItem('pr_ref',r)}catch(e){}if(!TOKEN){try{localStorage.removeItem('pr_guest')}catch(e){}}}})();
 initAuth();
-if(!TOKEN&&(function(){try{return localStorage.getItem('pr_ref')}catch(e){return 0}})())setTimeout(()=>{if(!TOKEN)showAuth('register')},50);
 </script>
 </body>
 </html>

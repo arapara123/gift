@@ -40,14 +40,10 @@ async function init(db) {
   await db.exec('CREATE INDEX IF NOT EXISTS grants_u ON grants (user_id, applied)');
   await db.exec('CREATE TABLE IF NOT EXISTS admin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL, detail TEXT NOT NULL)');
   await db.exec('CREATE TABLE IF NOT EXISTS tglink (user_id INTEGER PRIMARY KEY, tg_id INTEGER NOT NULL UNIQUE, ts INTEGER NOT NULL)');
-  await db.exec('CREATE TABLE IF NOT EXISTS tgseen (tg_id INTEGER PRIMARY KEY, ts INTEGER NOT NULL)');
-  await db.exec('CREATE TABLE IF NOT EXISTS refs (user_id INTEGER PRIMARY KEY, ref_id INTEGER NOT NULL, ts INTEGER NOT NULL, paid INTEGER NOT NULL DEFAULT 0)');
-  await db.exec('CREATE INDEX IF NOT EXISTS refs_r ON refs (ref_id)');
   await db.exec('CREATE TABLE IF NOT EXISTS cronat (user_id INTEGER PRIMARY KEY, at INTEGER NOT NULL)');
   ready = true;
 }
 
-const REF_BONUS = 10;
 const BOTS = ['@whale_gram', '@pepe_hunter', '@durov_vault', '@fragment_sniper', '@flip_master', '@portals_arb', '@tokyo_drift', '@gift_baron', '@vice_runner', '@lucia_flips'];
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const f2 = n => (Math.round(n * 100) / 100).toFixed(2);
@@ -148,11 +144,6 @@ async function register(req, env) {
       .bind(username, ITER + '$' + h, salt, Date.now()).run();
     id = r.meta.last_row_id;
   } catch (e) { return err('Этот юзернейм уже занят', 409); }
-  const ref = String(b.ref || '').replace(/^ref_/, '');
-  if (USER_RE.test(ref) && ref.toLowerCase() !== username.toLowerCase()) {
-    const r = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(ref).first();
-    if (r) await env.DB.prepare('INSERT OR IGNORE INTO refs (user_id, ref_id, ts, paid) VALUES (?, ?, ?, 0)').bind(id, r.id, Date.now()).run();
-  }
   return json({ token: await newSession(env, id), username });
 }
 
@@ -388,33 +379,7 @@ async function tglink(req, env, u) {
   if (!other) {
     await env.DB.prepare('INSERT OR REPLACE INTO tglink (user_id, tg_id, ts) VALUES (?, ?, ?)').bind(u.id, t.id, now).run();
   }
-  const seen = await env.DB.prepare('INSERT OR IGNORE INTO tgseen (tg_id, ts) VALUES (?, ?)').bind(t.id, now).run();
-  const first = seen.meta && seen.meta.changes > 0;
-  let refPaid = false;
-  const rf = await env.DB.prepare('SELECT r.ref_id, u.username, t.tg_id FROM refs r JOIN users u ON u.id = r.ref_id LEFT JOIN tglink t ON t.user_id = r.ref_id WHERE r.user_id = ? AND r.paid = 0').bind(u.id).first();
-  if (rf) {
-    const banned = await env.DB.prepare('SELECT 1 AS x FROM bans WHERE user_id = ?').bind(rf.ref_id).first();
-    const today = await env.DB.prepare('SELECT COUNT(*) AS n FROM refs WHERE ref_id = ? AND paid = 1 AND ts > ?').bind(rf.ref_id, now - 864e5).first();
-    if (first && !banned && (today ? today.n : 0) < 30) {
-      const pay = JSON.stringify({ amount: REF_BONUS, why: 'ref' });
-      await env.DB.batch([
-        env.DB.prepare('UPDATE refs SET paid = 1, ts = ? WHERE user_id = ?').bind(now, u.id),
-        env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)').bind(u.id, 'ton', pay, now),
-        env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)').bind(rf.ref_id, 'ton', JSON.stringify({ amount: REF_BONUS, why: 'ref', who: u.username }), now)
-      ]);
-      refPaid = true;
-      if (rf.tg_id) await tgSend(env, rf.tg_id, 'По твоей ссылке пришёл @' + u.username + '. Тебе начислено +' + REF_BONUS + ' GRAM!');
-    } else {
-      await env.DB.prepare('UPDATE refs SET paid = 2 WHERE user_id = ?').bind(u.id).run();
-    }
-  }
-  return json({ linked: true, refPaid, bonus: REF_BONUS });
-}
-
-async function refstats(env, u) {
-  const r = await env.DB.prepare('SELECT COUNT(*) AS n, SUM(CASE WHEN paid = 1 THEN 1 ELSE 0 END) AS p FROM refs WHERE ref_id = ?').bind(u.id).first();
-  const l = await env.DB.prepare('SELECT 1 AS x FROM tglink WHERE user_id = ?').bind(u.id).first();
-  return json({ invited: (r && r.n) || 0, paid: (r && r.p) || 0, bonus: REF_BONUS, link: appLink(env, 'ref_' + u.username), tg: !!l, notify: !!env.BOT_TOKEN });
+  return json({ linked: true });
 }
 
 async function cron(env) {
@@ -484,14 +449,10 @@ async function route(req, env, url) {
   if (path === '/api/register' && m === 'POST') return register(req, env);
   if (path === '/api/login' && m === 'POST') return login(req, env);
 
-  if (path === '/api/config' && m === 'GET') return json({ bot: appLink(env, ''), notify: !!env.BOT_TOKEN, bonus: REF_BONUS });
+  if (path === '/api/config' && m === 'GET') return json({ bot: appLink(env, ''), notify: !!env.BOT_TOKEN });
   if (path === '/api/tglink' && m === 'POST') {
     const a = await authed(req, env); if (a.res) return a.res;
     return tglink(req, env, a.u);
-  }
-  if (path === '/api/refstats' && m === 'GET') {
-    const a = await authed(req, env); if (a.res) return a.res;
-    return refstats(env, a.u);
   }
   if (path === '/api/me' && m === 'GET') {
     const a = await authed(req, env); if (a.res) return a.res;
