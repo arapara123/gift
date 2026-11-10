@@ -1153,7 +1153,7 @@ let _bdT=0;
 function bdDirty(g){
   clearTimeout(_bdT);
   _bdT=setTimeout(()=>{
-    if(UI.tab==='market')renderMarket();else if(UI.tab==='inv')renderInv();
+    if(UI.tab==='market'){UI.soft=true;try{renderMarket()}finally{UI.soft=false}}else if(UI.tab==='inv')renderInv();
     if(g&&UI.openId===g.id&&!$('modal').classList.contains('hidden'))openGift(g.id,false,true);
     saveSoon();
   },250);
@@ -1256,7 +1256,7 @@ function listGift(id){
   sfx.click();closeModal();toast(`${g.col} #${g.serial} выставлен за ${f2(g.price)} GRAM`,'ok');refresh();
 }
 function unlist(id){const g=S.inv.find(x=>x.id===id);if(!g)return;g.listed=false;S.market=S.market.filter(x=>x.id!==id);closeModal();toast('Снято с продажи');refresh()}
-function instantSell(id){const g=S.inv.find(x=>x.id===id);if(!g)return;const k=instantK(g);completeSale(g,+(fair(g)*k*(1-feeG(g))).toFixed(2),fair(g)*k,'Мгновенная продажа');closeModal()}
+function instantSell(id){const g=S.inv.find(x=>x.id===id);if(!g)return;completeSale(g,+(fair(g)*.9*(1-feeG(g))).toFixed(2),fair(g)*.9,'Мгновенная продажа');closeModal()}
 function completeSale(g,net,gross,who){
   const pl=+(net-g.bought).toFixed(2);
   S.inv=S.inv.filter(x=>x.id!==g.id);S.market=S.market.filter(x=>x.id!==g.id);S.offers=S.offers.filter(o=>o.gid!==g.id);
@@ -1280,20 +1280,7 @@ function acceptOffer(oid){
 }
 function declineOffer(oid){S.offers=S.offers.filter(x=>x.oid!==oid);sfx.click();refresh()}
 
-function chanceFor(r){return r<=.8?.14:r<=.9?.08:r<=.97?.045:r<=1.02?.028:r<=1.08?.014:r<=1.15?.006:r<=1.3?.0022:r<=1.6?.0006:0}
-function demandOf(g){
-  if(!g||g.base)return 1;
-  const cls=matchCls(g);let d=cls==='mono'?1.6:cls==='harm'?1.35:cls==='nice'?1.15:cls==='contrast'?1.05:cls==='bad'?.5:.85;
-  const t=tierOf(g);d*=t==='legendary'?1.3:t==='epic'?1.15:t==='rare'?1.05:.95;
-  const sm=serialInfo(g.serial,g.col).m;if(sm>=2)d*=1.4;else if(sm>=1.3)d*=1.2;
-  const bn=bdName(g);if(bn==='Black'||bn==='Onyx Black')d*=1.2;
-  if(NEON_BD.has(bn))d*=1.08;
-  d*=clamp(1+trendOf(g.col)/50,.8,1.2);
-  return +clamp(d,.35,2.2).toFixed(2);
-}
-function demandLabel(d){return d>=1.5?['Очень высокий','green']:d>=1.15?['Высокий','green']:d>=.9?['Средний','amber']:d>=.6?['Низкий','red']:['Очень низкий','red']}
-function sellChance(g,price){return Math.min(.5,chanceFor(ratioOf(g,price))*demandOf(g))}
-function instantK(g){return clamp(.76+.06*demandOf(g),.78,.88)}
+function chanceFor(r){return r<=.9?.5:r<=1?.22:r<=1.08?.09:r<=1.2?.03:r<=1.4?.008:r<=1.8?.002:0}
 function trendOf(c){const h=S.fh[c];return +((h[h.length-1]/h[0]-1)*100).toFixed(1)}
 function tick(){
   UI.soft=true;
@@ -1307,12 +1294,12 @@ function tick(){
   const oth=S.market.filter(x=>!x.mine);
   for(let i=0;i<8&&oth.length;i++){const g=pick(oth),old=g.price,tg=botReprice(g);g.price=+Math.max(.5,old+(tg-old)*rnd(.3,.85)).toFixed(2);g.fl=g.price<old?-1:g.price>old?1:0}
   for(const g of S.inv.filter(x=>x.listed)){
-    if(Math.random()<sellChance(g,g.price)){const b=pick(BOTS);const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);completeSale(g,net,g.price,b);break}
+    if(Math.random()<chanceFor(ratioOf(g,g.price))){const b=pick(BOTS);const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);completeSale(g,net,g.price,b);break}
   }
   const up=S.inv.filter(x=>!x.base);
   if(up.length&&S.offers.length<4&&Math.random()<.11){
-    const g=pick(up),dm=demandOf(g);if(!S.offers.some(o=>o.gid===g.id)&&Math.random()<Math.min(1,dm*.75)){
-      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b,price:+(fair(g)*(Math.random()<.04*dm&&!(g.ncap>0)?rnd(1.08,1.4):clamp(rnd(.78,.94)+.05*(dm-1),.7,1))).toFixed(2),exp:Date.now()+120000});sfx.offer();haptic('medium');toast(`Новый оффер на ${g.col} #${g.serial}`)}
+    const g=pick(up);if(!S.offers.some(o=>o.gid===g.id)){
+      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b,price:+(fair(g)*(Math.random()<.06&&!(g.ncap>0)?rnd(1.12,1.55):rnd(.84,1))).toFixed(2),exp:Date.now()+120000});sfx.offer();haptic('medium');toast(`Новый оффер на ${g.col} #${g.serial}`)}
   }
   S.offers=S.offers.filter(o=>o.exp>Date.now()&&S.inv.some(g=>g.id===o.gid));
   const others=S.market.filter(x=>!x.mine);
@@ -1444,14 +1431,15 @@ function softOrder(el,all,lim){
   if(!el._keyed||!el._keyed.size||el._h!=null)return all.slice(0,lim);
   const sc=el.closest('.scroll'),st=sc?sc.getBoundingClientRect().top:0;
   const byId=new Map(all.map((g,i)=>[g.id,i])),keep=[];
-  let firstVis=-1;
-  el._keyed.forEach((node,k)=>{if(!byId.has(k))return;keep.push(k);if(firstVis<0&&node.getBoundingClientRect().bottom>st+40)firstVis=keep.length-1});
+  let firstVis=-1,lastVis=-1;
+  el._keyed.forEach((node,k)=>{if(!byId.has(k))return;keep.push(k);const r=node.getBoundingClientRect();if(firstVis<0&&r.bottom>st+40)firstVis=keep.length-1;if(r.top<innerHeight+40)lastVis=keep.length-1});
   if(firstVis<0)firstVis=keep.length;
+  if(lastVis<firstVis)lastVis=firstVis;
   const kset=new Set(keep);
   for(const g of all.slice(0,lim)){
     if(kset.has(g.id))continue;
     const s=byId.get(g.id);let pos=keep.findIndex(k=>byId.get(k)>s);if(pos<0)pos=keep.length;
-    if(pos<=firstVis)continue;
+    if(pos<=lastVis)continue;
     keep.splice(pos,0,g.id);kset.add(g.id);
   }
   return keep.slice(0,lim).map(k=>all[byId.get(k)]);
@@ -1547,6 +1535,33 @@ function spark(arr,up){
 
 function openModal(){const m=$('modal');clearTimeout(UI._mc);m.classList.remove('closing');const was=!m.classList.contains('hidden');m.classList.remove('hidden');if(!was){const s=$('sheet');s.style.animation='none';void s.offsetWidth;s.style.animation=''}tgBack(true)}
 function closeModal(){const m=$('modal');UI.cpq='';tgBack(UI.tab==='wallet');if(m.classList.contains('hidden')||m.classList.contains('closing'))return;m.classList.add('closing');clearTimeout(UI._mc);UI._mc=setTimeout(()=>{m.classList.add('hidden');m.classList.remove('closing')},210)}
+(function(){
+  const sh=$('sheet');let sy=0,dy=0,t0=0,ok=false,drag=false;
+  sh.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1||e.target.closest('input,select,textarea,.trk')){ok=false;return}
+    ok=sh.scrollTop<=0;sy=e.touches[0].clientY;dy=0;drag=false;t0=Date.now();
+  },{passive:true});
+  sh.addEventListener('touchmove',e=>{
+    if(!ok)return;const d=e.touches[0].clientY-sy;
+    if(!drag){if(d>8&&sh.scrollTop<=0){drag=true;sh.style.transition='none'}else if(d<-8){ok=false;return}else return}
+    dy=Math.max(0,d);sh.style.transform='translateY('+dy+'px)';
+    if(e.cancelable)e.preventDefault();
+  },{passive:false});
+  const end=()=>{
+    if(!drag){ok=false;return}
+    drag=false;ok=false;
+    const v=dy/Math.max(1,Date.now()-t0);
+    if(dy>120||(dy>40&&v>.6)){
+      sh.style.animation='none';sh.style.transition='transform .2s ease-in';sh.style.transform='translateY(100%)';
+      closeModal();
+      setTimeout(()=>{if($('modal').classList.contains('hidden')){sh.style.transition='';sh.style.transform='';sh.style.animation=''}},260);
+    }else{
+      sh.style.transition='transform .2s cubic-bezier(.2,.9,.3,1)';sh.style.transform='';
+      setTimeout(()=>{sh.style.transition=''},220);
+    }
+  };
+  sh.addEventListener('touchend',end);sh.addEventListener('touchcancel',end);
+})();
 function tgBack(on){try{const tg=window.Telegram&&Telegram.WebApp;if(!tg||!tg.initData)return;if(on)tg.BackButton.show();else tg.BackButton.hide()}catch(e){}}
 
 function openGift(id,just,keep){
@@ -1569,12 +1584,11 @@ function openGift(id,just,keep){
         <div class="row sb"><span class="mut">Комиссия ${(feeG(g)*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
         <div class="row sb"><span class="mut">Вы получите</span><b id="sp-net"></b></div>
         <div class="row sb"><span class="mut">Прибыль</span><b id="sp-pl"></b></div>
-        <div class="row sb"><span class="mut">Спрос на этот подарок</span><b class="${demandLabel(demandOf(g))[1]}">${demandLabel(demandOf(g))[0]}</b></div>
-        <div class="row sb"><span class="mut">Шанс продажи за минуту</span><b id="sp-ch"></b></div>
+        <div class="row sb"><span class="mut">Шанс быстрой продажи</span><b id="sp-ch"></b></div>
       </div>
     </div>
     <div class="row">
-      ${g.listed?`<button class="btn red big" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="btn ghost big" style="flex:1" onclick="instantSell(${g.id})">Продать за ${f2(f*instantK(g)*(1-feeG(g)))}</button>`}
+      ${g.listed?`<button class="btn red big" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="btn ghost big" style="flex:1" onclick="instantSell(${g.id})">Продать за ${f2(f*.9*(1-feeG(g)))}</button>`}
       <button class="btn big" style="flex:1.2" onclick="listGift(${g.id})">${g.listed?'Изменить цену':'Выставить'}</button>
     </div>
     <button class="btn ghost" style="margin-top:8px;height:44px" onclick="openTransfer(${g.id})">Отправить</button>`;
@@ -1615,7 +1629,7 @@ function calcSell(id){
   const rng=$('sell-rng');if(rng&&document.activeElement!==rng)rng.value=v;
   $('sp-fee').textContent='−'+f2(v*feeG(g));$('sp-net').textContent=f2(net)+' GRAM';
   $('sp-pl').textContent=(pl>=0?'+':'')+f2(pl)+' GRAM';$('sp-pl').className=pl>=0?'green':'red';
-  const ch=Math.min(99,Math.round((1-Math.pow(1-sellChance(g,v),20))*100));$('sp-ch').textContent=ch+'%';$('sp-ch').className=ch>60?'green':ch>25?'amber':'red';
+  const ch=Math.min(99,Math.round((1-Math.pow(1-chanceFor(r),15))*100));$('sp-ch').textContent=ch+'%';$('sp-ch').className=ch>60?'green':ch>25?'amber':'red';
 }
 function toggleWear(id){S.worn=S.worn===id?null:id;sfx.click();save();refresh();openGift(id,false,true)}
 function togglePin(id){const i=S.pinned.indexOf(id);if(i>=0)S.pinned.splice(i,1);else{if(S.pinned.length>=9)S.pinned.shift();S.pinned.push(id)}sfx.click();save();refresh();openGift(id,false,true)}
@@ -1686,19 +1700,7 @@ function openPicker(kind){
 
 const NO_UP=new Set(['Algorithm Cup','Intelligence Cup']);
 const UP_P=.30,UPQ={};
-function craftValue(g,V,I,win){
-  // знак результата определяется броском (30% / 70%), размер — красотой: сочетание с фоном, редкость, номер
-  const u=unitOf(g),lr=Math.log(Math.max(V,.01)/I),dm=demandOf(g);
-  if(win){const k=clamp(.7+Math.max(0,lr)*3+(dm-1)*1.2,.7,4);return +(I+k*u).toFixed(2)}
-  const k=clamp(.7+Math.max(0,-lr)*3-(dm-1)*1.2,.4,3.5);return +Math.max(.5,I-k*u).toFixed(2);
-}
-function craftScore(col,sn){const tr=traits(col,sn),x={col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false};return fair(x)*demandOf(x)}
-function craftSerial(col,sup,used,win){
-  // берём 20 кандидатов, сортируем по красоте; удача — из верхних 30%, неудача — из нижних 70%
-  const c=[];for(let i=0;i<20;i++){const sn=plainSerial(sup,used);c.push([sn,craftScore(col,sn)])}
-  c.sort((a,b)=>a[1]-b[1]);const cut=Math.round(c.length*.7);
-  return win?c[cut+Math.floor(Math.random()*(c.length-cut))][0]:c[Math.floor(Math.random()*cut)][0];
-}
+function craftValue(g,V,I){const u=unitOf(g),lr=Math.log(Math.max(V,.01)/I),d=Math.sign(lr)*Math.min(3.5,Math.abs(lr)*3)*u;return +Math.max(.5,I+d).toFixed(2)}
 function upMult(c){
   if(UPQ[c])return UPQ[c];
   const sup=COLS[c].supply,r=seeded(hash('upq:'+c)),v=[],f=S.floors[c]||COLS[c].floor;
@@ -1710,9 +1712,9 @@ const UP_TIERS=[[.1999,1,1,3],[.07,1,3,5],[.029,1,5,9],[.001,1,9,15],[.0001,1,12
 const UP_TIERS_BIG=[[.1999,1,8,12],[.07,1,10,15],[.029,1,13,20],[.001,1,15,20],[.0001,1,200,200,1],[.5,-1,6,12],[.14,-1,10,15],[.045,-1,13,20],[.015,-1,15,20]];
 function upScale(c){const f=(COLS[c]&&COLS[c].floor)||5;return f<=10?1:f<=50?1.4:2}
 function rollUp(invested,col){
-  const big=((COLS[col]&&COLS[col].floor)||0)>=200,k=big?10:upScale(col),win=Math.random()<UP_P;
-  const jp=win&&Math.random()<.0001/UP_P;
-  return{win,jp,target:jp?+(invested+(big?200:rnd(120,150)*k)).toFixed(2):invested};
+  const big=((COLS[col]&&COLS[col].floor)||0)>=200,T=big?UP_TIERS_BIG:UP_TIERS,k=big?1:upScale(col);let r=Math.random();
+  for(const t of T){if(r<t[0]){const x=(t[2]+Math.random()*(t[3]-t[2]))*k;return{jp:!!t[4],target:+Math.max(.5,invested+t[1]*x).toFixed(2)}}r-=t[0]}
+  return{jp:false,target:+Math.max(.5,invested-1*k).toFixed(2)};
 }
 function upCost(c){return +(S.floors[c]*Math.max(upMult(c)-BASE_BUY,.5)).toFixed(2)}
 function baseCost(c){return +(S.floors[c]*BASE_BUY).toFixed(2)}
@@ -1759,7 +1761,7 @@ function doUpgrade(){
   const roll=rollUp(invested,g.col);
   const rs=roll.jp?rareForce(Math.min(sup,100000),used):0;
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
-  const pickd=mk(rs||craftSerial(g.col,sup,used,roll.win));
+  const pickd=mk(rs||plainSerial(sup,used));
   const serial=pickd.sn,r=Object.assign({col:g.col,serial},pickd.tr),jackpot=!!rs;
   let rdone=UI.render!=='CDN',realAttrs=null,smp=null;
   if(!rdone)Promise.all([
@@ -1810,7 +1812,7 @@ function doUpgrade(){
     if(smp){g.sm=smp.sm;g.bsync=3}
     g.real=realAttrs||undefined;
     delete g.vmul;delete g.fixv;g.vcap=0;g.ncap=0;
-    const V=fair(g),val=jackpot?Math.max(roll.target,craftValue(g,V,invested,true)):craftValue(g,V,invested,roll.win);
+    const V=fair(g),val=jackpot?Math.max(roll.target,craftValue(g,V,invested)):craftValue(g,V,invested);
     g.vcap=val;g.ncap=val;g.fixv=val;
     const fu=IMG_URL[slug+'-'+r.serial+'l']||IMG_URL[slug+'-'+r.serial];
     if(fu){
@@ -2143,7 +2145,7 @@ async function api(path,opt){
 }
 function validState(d){return d&&typeof d==='object'&&typeof d.ton==='number'&&Array.isArray(d.inv)&&Array.isArray(d.market)}
 function calcWorth(){return +(S.ton+S.inv.reduce((s,g)=>s+fair(g),0)).toFixed(2)}
-function slimState(){const o=Object.assign({},S);o.inv=S.inv.map(g=>g.base?g:Object.assign({},g,{fv:fair(g),ch:g.listed?+sellChance(g,g.price).toFixed(4):0}));o.market=o.inv.filter(g=>g.listed);o.feed=[];o.ackq=[];return o}
+function slimState(){const o=Object.assign({},S);o.inv=S.inv.map(g=>g.base?g:Object.assign({},g,{fv:fair(g),ch:g.listed?+chanceFor(ratioOf(g,g.price)).toFixed(4):0}));o.market=o.inv.filter(g=>g.listed);o.feed=[];o.ackq=[];return o}
 function sigOf(){return [S.ton,S.profit,S.flips,S.worn,S.stars,S.ev&&S.ev.earned,S.pinned.join(),JSON.stringify(S.prof),S.inv.map(g=>g.id+':'+g.serial+':'+(g.listed?g.price:0)).join()].join('|')}
 function setSync(v){SYNC=v;if(UI.tab==='profile')renderAcc()}
 function cloudSoon(){if(!TOKEN||!CLOUD_READY||_cloudT)return;_cloudT=setTimeout(()=>{_cloudT=0;pushCloud()},6000)}
