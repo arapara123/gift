@@ -1301,6 +1301,8 @@ function instantSell(id){
   closeModal();
 }
 function completeSale(g,net,gross,who){
+  /* улучшенный подарок нельзя продать дороже его итоговой цены — ни по лоту, ни по офферу */
+  if(g.ncap>0&&net>g.ncap){const k=g.ncap/net;net=g.ncap;gross=+(gross*k).toFixed(2)}
   const pl=+(net-g.bought).toFixed(2);
   S.inv=S.inv.filter(x=>x.id!==g.id);S.market=S.market.filter(x=>x.id!==g.id);S.offers=S.offers.filter(o=>o.gid!==g.id);
   S.pinned=S.pinned.filter(x=>x!==g.id);if(S.worn===g.id)S.worn=null;
@@ -1663,14 +1665,19 @@ const UP_TIERS=[
   [.1998,1,1,3],[.07,1,3,5],[.025,1,5,9],[.004,1,9,15],[.001,1,15,25],[.0002,1,120,150,1],   /* плюс: 30% */
   [.50,-1,1,3],[.14,-1,3,5],[.045,-1,5,9],[.012,-1,9,15],[.003,-1,15,20]                       /* минус: 70% */
 ];
-/* множитель размера по флору коллекции: чем дороже подарок, тем больше «шаг» плюса/минуса */
+/* ДОРОГИЕ подарки (флор от 200 TON: Pepe, Cap, Peach…): обычно ±5…10, максимум ±15, джекпот +15…20 */
+const UP_TIERS_BIG=[
+  [.1998,1,5,10],[.08,1,8,12],[.02,1,10,15],[.0002,1,15,20,1],
+  [.50,-1,5,10],[.15,-1,8,12],[.05,-1,10,15]
+];
+/* множитель размера для обычных (не дорогих) коллекций */
 function upScale(c){
   const f=(COLS[c]&&COLS[c].floor)||5;
-  return f<=10?1:f<=30?1.4:f<=100?2:f<=400?3:f<=2000?4:5;
+  return f<=10?1:f<=50?1.4:2;
 }
 function rollUp(invested,col){
-  const k=upScale(col);let r=Math.random();
-  for(const t of UP_TIERS){
+  const big=((COLS[col]&&COLS[col].floor)||0)>=200,T=big?UP_TIERS_BIG:UP_TIERS,k=big?1:upScale(col);let r=Math.random();
+  for(const t of T){
     if(r<t[0]){
       const x=(t[2]+Math.random()*(t[3]-t[2]))*k;
       /* минус не может съесть больше, чем вложено (оставляем минимум 0.5 TON) */
@@ -1740,7 +1747,7 @@ function doUpgrade(){
      Потолок плюса: не больше +100% вложенного и не больше +2500 TON; у джекпота потолок только защитный (+50 000) */
   const invested=+(g.bought+cost).toFixed(2),sup=COLS[g.col].supply;
   const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
-  const roll=rollUp(invested,g.col);
+  const roll=rollUp(invested,g.col),ncapV=roll.target;roll.target=+(roll.target/(1-feeRate())).toFixed(2); /* оценка считается «брутто», чтобы после комиссии на руки вышло ровно invested ± N TON */
   const rs=roll.jp?rareForce(Math.min(sup,100000),used):0; /* джекпот: красивый номер */
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
   /* бросаем «кейс»: сначала выпадает множитель от вложенного (30% плюс / 70% минус),
@@ -1802,7 +1809,7 @@ function doUpgrade(){
     delete g.vmul;g.vcap=0;
     const raw=fair(g);
     if(raw>0&&raw<vcapV)g.vmul=+(vcapV/raw).toFixed(4);
-    g.vcap=vcapV;
+    g.vcap=vcapV;g.ncap=ncapV;
     ug.style.transform='';ug.classList.add('done');
     ug.innerHTML=imgTag(g,'uimg')+'<span>'+ini(g.col)+'</span>';
     const tt=q('uttl');tt.classList.add('res');tt.innerHTML=escH(g.col)+' <small>#'+nf(g.serial)+'</small>';
@@ -2295,6 +2302,10 @@ go('market');
     requestAnimationFrame(loop);
   })(last);
 })();
+/* вибрация при каждом нажатии на кнопки, карточки, вкладки и ползунки */
+document.addEventListener('pointerdown',e=>{
+  try{if(e.target.closest&&e.target.closest('button,.card,.art,.pill,.chip,.urow,.tg-line,.tr,.hero,.trk,select,input,.x,.seg,.mtabs'))vib(10)}catch(_){}
+},true);
 /* автосохранение: при любом изменении, при сворачивании и закрытии вкладки */
 window.addEventListener('pagehide',save);window.addEventListener('beforeunload',save);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
