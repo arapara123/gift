@@ -129,8 +129,8 @@ input,select{font:inherit;color:inherit}
 .card:active{transform:scale(.985)}
 .art{position:relative;aspect-ratio:1;border-radius:18px;overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .art .ini{font-size:30px;font-weight:800;color:rgba(255,255,255,.7);letter-spacing:-.02em}
-.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s;z-index:2}
-.art img.ld{opacity:1}
+.art img,.mini img,.estg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.08);filter:blur(8px);transition:opacity .4s ease,transform .6s cubic-bezier(.2,.9,.3,1),filter .45s ease;z-index:2}
+.art img.ld,.mini img.ld,.estg img.ld{opacity:1;transform:none;filter:none}
 .art .info{position:absolute;top:7px;right:7px;z-index:4;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9)}
 .art .info svg{width:13px;height:13px}
 .badge{position:absolute;z-index:4;left:7px;bottom:7px;font-size:10.5px;font-weight:800;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,.42);color:#fff}
@@ -383,6 +383,16 @@ img{border-radius:inherit}
 .hero .ttl{text-shadow:0 1px 10px rgba(0,0,0,.45)}
 .ufull{position:absolute;left:50%;top:46%;width:220px;height:220px;margin:-110px 0 0 -110px;object-fit:cover;z-index:3;border-radius:0;-webkit-mask:radial-gradient(closest-side,#000 66%,transparent 98%);mask:radial-gradient(closest-side,#000 66%,transparent 98%)}
 .stage .hblur{z-index:2}
+.art .ini,.mini .ini{animation:ipl 1.6s ease-in-out infinite}
+@keyframes ipl{50%{opacity:.45}}
+.card.cin{animation:cin .45s cubic-bezier(.2,.9,.3,1) both}
+@keyframes cin{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.card.pd .crow .btn,.card.pd>.btn{animation:pdf 1.2s ease}
+.card.pu .crow .btn,.card.pu>.btn{animation:puf 1.2s ease}
+@keyframes pdf{0%,35%{background:var(--green);color:#03200f}}
+@keyframes puf{0%,35%{background:#e0912a}}
+.hfull{transform:scale(1.06);filter:blur(8px);transition:opacity .4s ease,transform .6s cubic-bezier(.2,.9,.3,1),filter .45s ease!important}
+.hfull.ld{transform:none;filter:none}
 </style>
 </head>
 <body>
@@ -749,7 +759,7 @@ const UI={tab:'market',cat:'all',cols:new Set(),q:'',iq:'',sort:'PRICE_ASC',invF
   g3:(function(){try{return localStorage.getItem('pr_g3')==='1'}catch(e){return false}})(),
   render:(function(){try{return localStorage.getItem('pr_render')||'CDN'}catch(e){return'CDN'}})()};
 const TRK={t:0,c:0};
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}cloudSoon()}
+function save(){try{const o=Object.assign({},S);o.market=S.market.filter(g=>g.mine);localStorage.setItem(KEY,JSON.stringify(o))}catch(e){}cloudSoon()}
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
 function patchState(){
   const stale=S.mv!==7;
@@ -1018,7 +1028,7 @@ function issuedOf(c){const t=COLS[c].supply;return t-Math.floor(t*(0.004+(hash(c
 function modelPct(g){return pct(MODELS[g.mi][1],SUMS.m)}
 function bdPct(g){return pct(BACKDROPS[g.bi][3],SUMS.b)}
 function patPct(g){return pct(PATTERNS[g.pi][1],SUMS.p)}
-function baseTarget(c){return clamp(52/Math.pow(COLS[c].floor,.42),2.5,34)}
+function baseTarget(c){return clamp(115/Math.pow(COLS[c].floor,.4),5,60)}
 function niceAsk(v){
   if(v<30)return +v.toFixed(2);
   const r=Math.random();
@@ -1280,7 +1290,7 @@ function tick(){
   S.offers=S.offers.filter(o=>o.exp>Date.now()&&S.inv.some(g=>g.id===o.gid));
   const others=S.market.filter(x=>!x.mine);
   if(others.length>40&&Math.random()<.3){
-    const sorted=[...others].sort((a,b)=>a.price/fair(a)-b.price/fair(b)),g=sorted[Math.floor(Math.random()*4)];
+    const smp=Array.from({length:40},()=>pick(others)).sort((a,b)=>a.price/fair(a)-b.price/fair(b)),g=smp[Math.floor(Math.random()*3)];
     S.market=S.market.filter(x=>x.id!==g.id);feed(`<b>${pick(BOTS)}</b> купил <b>${g.col} #${g.serial}</b> за <b>${f2(g.price)}</b>`);
   }
   const cnt={};S.market.forEach(x=>{if(!x.mine)cnt[x.col]=(cnt[x.col]||0)+1});
@@ -1294,7 +1304,7 @@ function tick(){
     if(have<want){const n=Math.min(want-have,Math.max(1,Math.ceil((want-have)*.4)));for(let k=0;k<n;k++)adds.push(c)}
     else if(have>want){let n=Math.ceil((have-want)*.35);while(n-->0){const pool=S.market.filter(x=>!x.mine&&x.col===c);if(pool.length<=want)break;const v=pick(pool);S.market=S.market.filter(x=>x.id!==v.id)}}
   });
-  adds=adds.sort(()=>Math.random()-.5).slice(0,18);
+  adds=adds.sort(()=>Math.random()-.5).slice(0,40);
   if(Math.random()<.015){const c=pick(COL_NAMES),sn=rareSerial(COLS[c].supply);
     if(sn&&!S.market.some(x=>x.col===c&&x.serial===sn)){const g=mkGift({col:c,serial:sn});g.price=marketPrice(g);S.market.unshift(g);feed(`Редкий номер: <b>${c} #${sn}</b> за <b>${f2(g.price)}</b>`)}}
   for(const c of adds){
@@ -1361,6 +1371,26 @@ function openCraftCat(col){
   setTimeout(()=>{const el=$('mk-craft');if(el)$('v-market').scrollTo({top:el.offsetTop-90,behavior:'smooth'})},60);
 }
 
+
+function renderList(el,items,keyFn,htmlFn,emptyHtml){
+  if(!items.length){el._keyed=null;setHTML(el,emptyHtml);return}
+  if(!el._keyed||el._h!=null){el.innerHTML='';el._h=null;el._keyed=new Map()}
+  const old=el._keyed,next=new Map(),fresh=!old.size;let n=0;
+  items.forEach((it,i)=>{
+    const k=keyFn(it),h=htmlFn(it);let node=old.get(k);
+    if(node&&node._h!==h){
+      const t=document.createElement('div');t.innerHTML=h;const nn=t.firstElementChild;nn._h=h;
+      node.querySelectorAll('img.ld[data-k]').forEach(oi=>{const ni=nn.querySelector(`img[data-k="${oi.dataset.k}"]`);if(ni)ni.replaceWith(oi)});
+      if(node.dataset.p&&nn.dataset.p&&node.dataset.p!==nn.dataset.p)nn.classList.add(+nn.dataset.p<+node.dataset.p?'pd':'pu');
+      node.replaceWith(nn);node=nn;
+    }
+    if(!node){const t=document.createElement('div');t.innerHTML=h;node=t.firstElementChild;node._h=h;node.classList.add('cin');node.style.animationDelay=(fresh?Math.min(n++,10)*28:0)+'ms'}
+    next.set(k,node);
+    const cur=el.children[i];if(cur!==node)el.insertBefore(node,cur||null);
+  });
+  const keep=new Set(next.values());[...el.children].forEach(ch=>{if(!keep.has(ch))ch.remove()});
+  el._keyed=next;
+}
 function giftCard(g,mode){
   if(g.base)return `<div class="card"><div class="art" style="background:#2e3540" onclick="openCraft(${g.id})"><span class="ini">${ini(g.col)}</span><span class="badge tl">Обычный</span></div><div class="ctitle">${g.col}</div><div class="cid">не улучшен</div><button class="btn purple" onclick="openCraft(${g.id})">Крафт</button></div>`;
   const si=serialInfo(g.serial,g.col);
@@ -1368,7 +1398,7 @@ function giftCard(g,mode){
   let btn;
   if(mode==='inv')btn=g.listed?`<button class="btn green" onclick="openGift(${g.id})">${f2(g.price)} ${GEM}</button>`:`<button class="btn" onclick="openGift(${g.id})">Продать</button>`;
   else btn=`<div class="crow"><button class="btn" onclick="openGift(${g.id})">${f2(g.price)} ${GEM}</button><button class="cart" aria-label="Купить" onclick="buy(${g.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2.5l2.2 10.5a1.5 1.5 0 001.5 1.2h7.9a1.5 1.5 0 001.5-1.1L20.5 8H6.3"/><circle cx="9.5" cy="20" r="1.3" fill="currentColor"/><circle cx="17" cy="20" r="1.3" fill="currentColor"/></svg></button></div>`;
-  return `<div class="card"><div class="art" style="background:${bg(g)}" onclick="openGift(${g.id})">${artInner(g)}<span class="info"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 10h2v7h-2zm0-4h2v2h-2z"/></svg></span>${badge}</div><div class="ctitle">${g.col}</div><div class="cid">#${nf(g.serial)}${mode==='inv'?' · ≈ '+f2(fair(g)):''}</div>${btn}</div>`;
+  return `<div class="card" data-p="${g.listed||!g.mine?g.price:''}"><div class="art" style="background:${bg(g)}" onclick="openGift(${g.id})">${artInner(g)}<span class="info"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 10h2v7h-2zm0-4h2v2h-2z"/></svg></span>${badge}</div><div class="ctitle">${g.col}</div><div class="cid">#${nf(g.serial)}${mode==='inv'?' · ≈ '+f2(fair(g)):''}</div>${btn}</div>`;
 }
 function pickCol(c){UI.cols=new Set([c]);UI.cat='all';UI.lim=60;sfx.click();$('v-market').scrollTop=0;renderMarket()}
 function renderCols(){
@@ -1378,10 +1408,10 @@ function renderCols(){
   const l=COL_NAMES.filter(c=>!q||c.toLowerCase().includes(q)).sort((a,b)=>S.floors[b]-S.floors[a]);
   l.forEach(c=>{if(fl[c])syncBd(fl[c])});
   const g3=UI.g3;$('cgrid').classList.toggle('g3',g3);
-  setHTML($('cgrid'),l.length?l.map(c=>{
+  renderList($('cgrid'),l,c=>'c:'+c,c=>{
     const g=fl[c],a=c.replace(/'/g,"\\'");
     return `<div class="card"><div class="art" style="background:${g?bg(g):'#2a2b30'}" onclick="pickCol('${a}')">${g?artInner(g):'<span class="ini">'+ini(c)+'</span>'}</div><div class="ctitle">${c}</div><div class="cid">${cnt[c]||0} шт.</div><button class="btn ghost" onclick="pickCol('${a}')">от ${f2(S.floors[c])} ${GEM}</button></div>`;
-  }).join(''):'<div class="empty" style="grid-column:1/-1">Коллекция не найдена</div>');
+  },'<div class="empty" style="grid-column:1/-1">Коллекция не найдена</div>');
 }
 function renderMarket(){
   document.querySelectorAll('#cats .cat').forEach(b=>b.classList.toggle('on',b.dataset.c===UI.cat));
@@ -1409,7 +1439,7 @@ function renderMarket(){
   l.forEach(syncBd);
   TRK.t=p;
   $('mgrid').classList.toggle('g3',UI.g3);
-  setHTML($('mgrid'),l.length?l.map(g=>giftCard(g,'m')).join(''):'<div class="empty" style="grid-column:1/-1"><b>Ничего не найдено</b>Попробуйте изменить фильтры<br><br><button class="pill on" onclick="resetFilters()">Сбросить фильтры</button></div>');
+  renderList($('mgrid'),l,g=>g.id,g=>giftCard(g,'m'),'<div class="empty" style="grid-column:1/-1"><b>Ничего не найдено</b>Попробуйте изменить фильтры<br><br><button class="pill on" onclick="resetFilters()">Сбросить фильтры</button></div>');
 }
 function plural(n,a,b,c){n=Math.abs(n)%100;const d=n%10;if(n>10&&n<20)return c;if(d>1&&d<5)return b;if(d===1)return a;return c}
 function openFilters(){
@@ -1569,7 +1599,7 @@ function renderInv(){
   if(q)l=l.filter(g=>g.col.toLowerCase().includes(q)||String(g.serial).includes(q));
   S.inv.forEach(syncBd);
   $('igrid').classList.toggle('g3',UI.g3);
-  setHTML($('igrid'),l.length?l.map(g=>giftCard(g,'inv')).join(''):`<div class="empty" style="grid-column:1/-1">${EMPTY_SVG}<b>${UI.invF==='LIST'?'Нет выставленных подарков':'Если подарков нет'}</b>${UI.invF==='LIST'?'Выставьте подарок на продажу':'Купите их на маркетплейсе'}</div>`);
+  renderList($('igrid'),l,g=>g.id,g=>giftCard(g,'inv'),`<div class="empty" style="grid-column:1/-1">${EMPTY_SVG}<b>${UI.invF==='LIST'?'Нет выставленных подарков':'Если подарков нет'}</b>${UI.invF==='LIST'?'Выставьте подарок на продажу':'Купите их на маркетплейсе'}</div>`);
 }
 const EMPTY_SVG='<svg viewBox="0 0 100 100"><defs><linearGradient id="eg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8db8"/><stop offset="1" stop-color="#f0538f"/></linearGradient><linearGradient id="eg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fb4ff"/><stop offset="1" stop-color="#2f6fd6"/></linearGradient></defs><ellipse cx="50" cy="72" rx="34" ry="14" fill="url(#eg1)"/><ellipse cx="50" cy="69" rx="20" ry="7" fill="#c23a72"/><path d="M28 64c-6-16-4-34 4-44 4-5 12-4 12 3 0 6-6 8-6 14 0 8 6 14 6 24z" fill="url(#eg1)"/><circle cx="34" cy="20" r="2.4" fill="#2a0d1c"/><path d="M26 22l-6 3 6 1z" fill="#ffc94a"/><rect x="40" y="40" width="26" height="22" rx="5" fill="url(#eg2)"/><rect x="51" y="40" width="4" height="22" fill="#ffd34a"/><rect x="38" y="36" width="30" height="7" rx="3" fill="#7cc2ff"/><path d="M53 36c-3-6-10-7-10-2 0 3 5 3 10 2zm0 0c3-6 10-7 10-2 0 3-5 3-10 2z" fill="#ffd34a"/></svg>';
 function renderOffers(){
@@ -2265,7 +2295,7 @@ function refresh(){
   else if(UI.tab==='profile')renderProfile();
 }
 
-if(!load()){S=freshState();seedMarket();evInit();save()}else patchState();
+if(!load()){S=freshState();seedMarket();evInit();save()}else{patchState();refillMarket()}
 go('market');
 setImg('bn-pepe','plushpepe',1);setImg('pr-pepe','plushpepe',1);
 (function(){
