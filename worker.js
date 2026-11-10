@@ -406,35 +406,46 @@ async function route(req, env, url) {
   return err('Не найдено', 404);
 }
 
-const IMG_RE = /^\/img\/([a-z0-9]{3,30})-(\d{1,7})\.(jpg|json)$/;
-async function imgProxy(url) {
-  const m = IMG_RE.exec(url.pathname);
-  const n = m ? Number(m[2]) : 0;
-  if (!m || n < 1 || n > 1000000) return new Response('Not found', { status: 404 });
-  const jpg = m[3] === 'jpg';
-  let r;
+const IMG_RE = /^\/img\/([a-z0-9]{3,30})-(\d{1,7})(\.l)?\.(jpg|json)$/;
+async function upstream(path) {
   try {
-    r = await fetch('https://nft.fragment.com/gift/' + m[1] + '-' + n + (jpg ? '.medium.jpg' : '.json'), {
+    const r = await fetch('https://nft.fragment.com/gift/' + path, {
       headers: { 'user-agent': 'Mozilla/5.0' },
       cf: { cacheEverything: true, cacheTtl: 2592000 }
     });
-  } catch (e) { return new Response('Bad gateway', { status: 502 }); }
-  if (!r.ok) return new Response('Not found', { status: r.status === 404 ? 404 : 502 });
-  return new Response(r.body, {
+    return r.ok ? r : null;
+  } catch (e) { return null; }
+}
+async function imgProxy(req, url, ctx) {
+  const m = IMG_RE.exec(url.pathname);
+  const n = m ? Number(m[2]) : 0;
+  if (!m || n < 1 || n > 1000000) return new Response('Not found', { status: 404 });
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const key = new Request(url.origin + url.pathname);
+  if (cache) { try { const hit = await cache.match(key); if (hit) return hit; } catch (e) {} }
+  const jpg = m[4] === 'jpg', base = m[1] + '-' + n;
+  let r = null;
+  if (!jpg) r = await upstream(base + '.json');
+  else if (m[3]) r = (await upstream(base + '.large.jpg')) || (await upstream(base + '.medium.jpg'));
+  else r = await upstream(base + '.medium.jpg');
+  if (!r) return new Response('Not found', { status: 404, headers: { 'cache-control': 'public, max-age=300' } });
+  const res = new Response(await r.arrayBuffer(), {
     status: 200,
     headers: {
       'content-type': jpg ? 'image/jpeg' : 'application/json; charset=utf-8',
-      'cache-control': 'public, max-age=2592000',
+      'cache-control': 'public, max-age=2592000, immutable',
       'access-control-allow-origin': '*',
       'x-content-type-options': 'nosniff'
     }
   });
+  if (cache && ctx) ctx.waitUntil(cache.put(key, res.clone()).catch(() => {}));
+  return res;
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
-    if (url.pathname.startsWith('/img/') && req.method === 'GET') return imgProxy(url);
+    if (url.pathname.startsWith('/img/') && req.method === 'GET') return imgProxy(req, url, ctx);
     if (!url.pathname.startsWith('/api/' ) && url.pathname !== '/api') {
       return env.ASSETS ? env.ASSETS.fetch(req) : new Response('Not found', { status: 404 });
     }

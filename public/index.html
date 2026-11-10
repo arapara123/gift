@@ -14,6 +14,8 @@
   tg.ready();tg.expand();
   try{tg.disableVerticalSwipes&&tg.disableVerticalSwipes()}catch(e){}
   try{tg.setHeaderColor('#121213');tg.setBackgroundColor('#121213');tg.setBottomBarColor&&tg.setBottomBarColor('#121213')}catch(e){}
+  try{if(tg.isVersionAtLeast&&tg.isVersionAtLeast('8.0')&&(tg.platform==='android'||tg.platform==='ios')&&!tg.isFullscreen){tg.requestFullscreen();document.documentElement.classList.add('tgfs')}}catch(e){}
+  try{tg.onEvent&&tg.onEvent('fullscreenChanged',function(){document.documentElement.classList.toggle('tgfs',!!tg.isFullscreen)})}catch(e){}
 }catch(e){}})();
 </script>
 <style>
@@ -393,6 +395,9 @@ img{border-radius:inherit}
 @keyframes puf{0%,35%{background:#e0912a}}
 .hfull{transform:scale(1.06);filter:blur(8px);transition:opacity .4s ease,transform .6s cubic-bezier(.2,.9,.3,1),filter .45s ease!important}
 .hfull.ld{transform:none;filter:none}
+.tgapp .scroll{padding-top:calc(var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
+.tgfs .toprow{min-height:44px}
+.hfull,.hblur{image-rendering:auto}
 </style>
 </head>
 <body>
@@ -1049,34 +1054,40 @@ function botReprice(g){
 }
 
 function bg(g){const b=BACKDROPS[g.bi];return `radial-gradient(circle at 50% 42%,${b[1]} 0%,${b[2]} 100%)`}
-const IMG_OK=new Set(),IMG_URL={},IMG_PEND=new Set();let IMG_ERR=0;
+const IMG_OK=new Set(),IMG_URL={},IMG_PEND=new Set(),IMG_WAIT={};let IMG_ERR=0;
 function fragUrl(s,n,j){return `https://nft.fragment.com/gift/${s}-${n}.${j?'json':'medium.jpg'}`}
-function imgCands(s,o){
-  const fb=((o-1)%300)+1,own=n=>`/img/${s}-${n}.jpg`,px=n=>`https://wsrv.nl/?url=${encodeURIComponent(fragUrl(s,n))}&w=360&q=78`;
-  return fb===o?[own(o),fragUrl(s,o),px(o)]:[own(o),fragUrl(s,o),px(o),own(fb),fragUrl(s,fb),px(fb)];
-}
-function imgTagRaw(slug,serial,cls=''){
+function ownUrl(s,n,z){return `/img/${s}-${n}${z==='l'?'.l':''}.jpg`}
+function imgTagRaw(slug,serial,cls='',z=''){
   if(UI.render!=='CDN')return'';
-  const k=slug+'-'+serial,u=IMG_URL[k];
-  if(u)return `<img class="ld ${cls}" referrerpolicy="no-referrer" decoding="async" data-k="${k}" src="${u}" alt="">`;
-  preloadImg(slug,serial);
-  return `<img class="${cls}" referrerpolicy="no-referrer" decoding="async" data-k="${k}" alt="">`;
+  const k=slug+'-'+serial+z,u=IMG_URL[k];
+  if(u)return `<img class="ld ${cls}" ${u[0]==='/'?'crossorigin="anonymous"':'referrerpolicy="no-referrer"'} decoding="async" data-k="${k}" src="${u}" alt="">`;
+  if(!LIO)preloadImg(slug,serial,null,z);
+  return `<img class="${cls}" decoding="async" data-k="${k}" data-q="${slug}|${serial}|${z}" alt="">`;
 }
-function imgTag(g,cls=''){if(g.base||!g.serial||!COLS[g.col])return'';return imgTagRaw(COLS[g.col].slug,g.serial,cls)}
-function raceImg(urls,cb){
-  let done=false,fails=0;
-  urls.forEach(u=>{const im=new Image();im.referrerPolicy='no-referrer';im.onload=()=>{if(!done){done=true;cb(u)}};im.onerror=()=>{if(++fails===urls.length&&!done){done=true;cb(null)}};im.src=u});
-}
-function preloadImg(s,o,cb){
-  const k=s+'-'+o;if(IMG_URL[k]){cb&&cb(IMG_URL[k]);return}if(IMG_PEND.has(k))return;IMG_PEND.add(k);
-  const c=imgCands(s,o),p1=c.slice(0,3),p2=c.slice(3);
-  const ok=u=>{IMG_URL[k]=u;IMG_OK.add(u);IMG_ERR=0;IMG_PEND.delete(k);cb&&cb(u);
-    document.querySelectorAll(`img[data-k="${k}"]`).forEach(e=>{if(!e.getAttribute('src')){e.src=u;e.classList.add('ld');const h=e.closest('.hero');if(h)h.classList.add('hasimg')}})};
-  const fail=()=>{IMG_PEND.delete(k);if(++IMG_ERR===10&&!IMG_OK.size)toast('Не удаётся загрузить изображения подарков. Проверьте подключение.','bad')};
-  raceImg(p1,u=>{if(u)ok(u);else if(p2.length)raceImg(p2,v=>v?ok(v):fail());else fail()});
+function imgTag(g,cls='',z=''){if(g.base||!g.serial||!COLS[g.col])return'';return imgTagRaw(COLS[g.col].slug,g.serial,cls,z)}
+const LQ=[];let LN=0;
+function pumpImg(){while(LN<6&&LQ.length){LN++;LQ.shift()()}}
+function loadOne(u,cors,ms){return new Promise(res=>{const im=new Image();let done=0;const fin=v=>{if(done)return;done=1;clearTimeout(t);res(v)};const t=setTimeout(()=>fin(null),ms);if(cors)im.crossOrigin='anonymous';else im.referrerPolicy='no-referrer';im.decoding='async';im.onload=()=>fin(u);im.onerror=()=>fin(null);im.src=u})}
+function preloadImg(s,o,cb,z='',prio){
+  const k=s+'-'+o+z;if(IMG_URL[k]){cb&&cb(IMG_URL[k]);return}
+  if(cb)(IMG_WAIT['cb:'+k]=IMG_WAIT['cb:'+k]||[]).push(cb);
+  if(IMG_PEND.has(k))return;IMG_PEND.add(k);
+  const job=async()=>{
+    let u=await loadOne(ownUrl(s,o,z),1,7000);
+    if(!u){const d=z==='l'?fragUrl(s,o).replace('.medium.jpg','.large.jpg'):fragUrl(s,o);
+      u=await Promise.any([loadOne(d,0,8000),loadOne(fragUrl(s,o),0,8000),loadOne(`https://wsrv.nl/?url=${encodeURIComponent(fragUrl(s,o))}&w=${z==='l'?720:360}&q=85`,0,9000)].map(p=>p.then(v=>v||Promise.reject()))).catch(()=>null)}
+    LN--;pumpImg();IMG_PEND.delete(k);
+    if(!u){if(++IMG_ERR===12&&!IMG_OK.size)toast('Не удаётся загрузить изображения подарков. Проверьте подключение.','bad');return}
+    IMG_URL[k]=u;IMG_OK.add(u);IMG_ERR=0;
+    document.querySelectorAll(`img[data-k="${k}"]`).forEach(e=>{if(e.getAttribute('src'))return;if(u[0]==='/')e.crossOrigin='anonymous';else e.referrerPolicy='no-referrer';e.removeAttribute('data-q');e.src=u;const on=()=>{e.classList.add('ld');const h=e.closest('.hero');if(h)h.classList.add('hasimg')};if(e.complete)on();else e.onload=on});
+    (IMG_WAIT['cb:'+k]||[]).forEach(f=>f(u));delete IMG_WAIT['cb:'+k];
+    const w=IMG_WAIT[k];if(w){delete IMG_WAIT[k];setTimeout(()=>syncBd(w),120)}
+  };
+  if(prio)LQ.unshift(job);else LQ.push(job);pumpImg();
 }
 function setImg(id,slug,serial){const el=$(id);if(!el||UI.render!=='CDN')return;preloadImg(slug,serial,u=>{el.src=u;el.classList.add('ld')})}
-
+const LIO=('IntersectionObserver' in window)?new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting)return;LIO.unobserve(e.target);const q=(e.target.dataset.q||'').split('|');if(q.length===3)preloadImg(q[0],+q[1],null,q[2],!!e.target.closest('.sheet'))})},{rootMargin:'350px 0px'}):null;
+if(LIO){let mq=0;new MutationObserver(()=>{if(mq)return;mq=requestAnimationFrame(()=>{mq=0;document.querySelectorAll('img[data-q]:not([data-o])').forEach(e=>{e.dataset.o=1;LIO.observe(e)})})}).observe(document.documentElement,{childList:true,subtree:true})}
 const IMG_BD={},IMG_Q={};
 function bdKey(g){return COLS[g.col].slug+'-'+g.serial}
 function analyze(x){
@@ -1149,6 +1160,7 @@ function bdDirty(g){
 function repriceAfter(g,old){const nw=fair(g);if(!g.mine&&!g.foreign&&g.price>0&&old>0&&!g.fixv)g.price=+Math.max(.5,g.price*nw/old).toFixed(2)}
 function syncBd(g){
   if(!g||g.base||(g.bsync===3&&g.sm)||UI.render!=='CDN'||!g.serial)return;
+  if(!IMG_URL[bdKey(g)]){IMG_WAIT[bdKey(g)]=g;return}
   sampleBd(g,d=>{
     if(g.bsync===3&&g.sm)return;
     const old=fair(g);
@@ -1180,7 +1192,7 @@ function syncReal(g){
   g._rq=1;RQ.push(g);pumpReal();
 }
 function pumpReal(){
-  while(RQN<4&&RQ.length){const g=RQ.shift();RQN++;
+  while(RQN<3&&RQ.length){const g=RQ.shift();RQN++;
     realOf(g.col,g.serial).then(o=>{g._rq=0;if(o)applyReal(g,o);else g.real=null}).finally(()=>{RQN--;pumpReal()})}
 }
 function heroBg(g){const d=IMG_BD[bdKey(g)];return d?`radial-gradient(circle 120px at 50% 40%,rgb(${d.C.join(',')}),rgb(${d.E.join(',')}))`:bg(g)}
@@ -1520,7 +1532,7 @@ function openGift(id,just,keep){
   }
   const mName=R.model?R.model.v:MODELS[g.mi][0];
   const bdc=IMG_BD[bdKey(g)],bdI=(R.backdrop||!bdc)?g.bi:bdc.i;
-  $('sheet').innerHTML=`<div class="hero" style="background:${heroBg(g)}">${imgTag(g,'hblur')}<div class="hini">${ini(g.col)}</div>${imgTag(g,'hfull')}<button class="xb" onclick="closeModal()">${XIC}</button>
+  $('sheet').innerHTML=`<div class="hero" style="background:${heroBg(g)}">${imgTag(g,'hblur','l')}<div class="hini">${ini(g.col)}</div>${imgTag(g,'hfull','l')}<button class="xb" onclick="closeModal()">${XIC}</button>
     <div class="ttl"><b>${g.col}</b> <span>#${nf(g.serial)}</span><div>${escH(mName)}</div></div></div>
   <div class="sbody">
   <div class="table">
@@ -1710,7 +1722,7 @@ function doUpgrade(){
     if(anim)pat.animate([{opacity:.2,transform:'scale(.94)'},{opacity:1,transform:'scale(1)'}],{duration:220,easing:'ease-out'});
   };
   const previews=[];
-  if(UI.render==='CDN')preloadImg(slug,r.serial);
+  if(UI.render==='CDN'){preloadImg(slug,r.serial,null,'',1);preloadImg(slug,r.serial,null,'l',1)}
   const face=u=>{ug.innerHTML=u?`<img class="ld" src="${u}" alt="">`:`<span>${IN}</span>`};
   const pulse=()=>ug.animate([{transform:'scale(1)'},{transform:'scale(.93)'},{transform:'scale(1)'}],{duration:170,easing:'cubic-bezier(.3,.7,.4,1)'});
   const tB=jackpot?2600:1800,tP=jackpot?3900:2900,tM=jackpot?5300:4000,ord=['up-r-b','up-r-p','up-r-m'];
@@ -1734,7 +1746,7 @@ function doUpgrade(){
     delete g.vmul;delete g.fixv;g.vcap=0;g.ncap=0;
     const V=fair(g),val=jackpot?Math.max(roll.target,craftValue(g,V,invested)):craftValue(g,V,invested);
     g.vcap=val;g.ncap=val;g.fixv=val;
-    const fu=IMG_URL[slug+'-'+r.serial];
+    const fu=IMG_URL[slug+'-'+r.serial+'l']||IMG_URL[slug+'-'+r.serial];
     if(fu){
       ug.animate([{transform:'scale(1)',opacity:1},{transform:'scale(.6)',opacity:0}],{duration:220,easing:'ease-in',fill:'forwards'});
       pat.animate([{opacity:1},{opacity:0}],{duration:260,fill:'forwards'});
