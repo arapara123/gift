@@ -1305,7 +1305,6 @@ function instantSell(id){
 }
 function completeSale(g,net,gross,who){
   /* улучшенный подарок нельзя продать дороже его итоговой цены — ни по лоту, ни по офферу */
-  if(g.ncap>0&&net>g.ncap){const k=g.ncap/net;net=g.ncap;gross=+(gross*k).toFixed(2)}
   const pl=+(net-g.bought).toFixed(2);
   S.inv=S.inv.filter(x=>x.id!==g.id);S.market=S.market.filter(x=>x.id!==g.id);S.offers=S.offers.filter(o=>o.gid!==g.id);
   S.pinned=S.pinned.filter(x=>x!==g.id);if(S.worn===g.id)S.worn=null;
@@ -1363,7 +1362,7 @@ function tick(){
   const up=S.inv.filter(x=>!x.base);
   if(up.length&&S.offers.length<4&&Math.random()<.11){
     const g=pick(up);if(!S.offers.some(o=>o.gid===g.id)){
-      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b[0],av:b[1],price:+(fair(g)*(Math.random()<.06?rnd(1.12,1.55):rnd(.84,1.0))).toFixed(2),exp:Date.now()+120000});sfx.offer();vib(40);toast(` Оффер на ${g.col} #${g.serial}`)}
+      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b[0],av:b[1],price:+(fair(g)*(Math.random()<.06&&!(g.ncap>0)?rnd(1.12,1.55):rnd(.84,1.0))).toFixed(2),exp:Date.now()+120000});sfx.offer();vib(40);toast(` Оффер на ${g.col} #${g.serial}`)}
   }
   S.offers=S.offers.filter(o=>o.exp>Date.now()&&S.inv.some(g=>g.id===o.gid));
   // боты скупают самые выгодные чужие лоты
@@ -1619,7 +1618,7 @@ async function sendGift(name){
 }
 function calcSell(id){
   const g=S.inv.find(x=>x.id===id);if(!g||!$('sell-price'))return;
-  const v=parseFloat($('sell-price').value)||0,net=Math.min(v*(1-feeG(g)),g.ncap>0?g.ncap:1e12),pl=net-g.bought,r=v/fair(g);
+  const v=parseFloat($('sell-price').value)||0,net=v*(1-feeG(g)),pl=net-g.bought,r=v/fair(g);
   const rng=$('sell-rng');if(rng&&document.activeElement!==rng)rng.value=v;
   $('sp-fee').textContent='−'+f2(v*feeG(g));$('sp-net').textContent=f2(net)+' TON';
   $('sp-pl').textContent=(pl>=0?'+':'')+f2(pl)+' TON';$('sp-pl').className=pl>=0?'green':'red';
