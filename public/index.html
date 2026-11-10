@@ -571,7 +571,7 @@ html,body{background:#0b0c0d;-webkit-font-smoothing:antialiased;-moz-osx-font-sm
 <main id="v-up" class="scroll hidden">
   <div class="panel" style="margin-top:8px">
     <div style="font-size:17px;font-weight:900">Улучшение до коллекционного</div>
-    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Результат считается в TON и зависит от цены подарка: у дешёвых обычно ±1…3 TON, у дорогих (вроде Pepe) в среднем ±8…15 TON, большие суммы выпадают всё реже. Сначала выпадает фон, потом узор, потом модель, номер выпадает случайно. Джекпот (красивый номер вроде #777) выпадает очень редко: у дешёвых примерно раз на 5000 улучшений, у дорогих — раз на 20 000, зато с огромным плюсом.</p>
+    <p class="mut" style="margin:6px 0 12px;line-height:1.5">Купите обычный подарок и улучшите его: он превратится в коллекционный. Как в кейсах: шанс окупиться 30%, шанс уйти в минус 70%. Результат считается в TON и зависит от цены подарка: у дешёвых обычно ±1…3 TON, у дорогих (вроде Pepe) в среднем ±8…15 TON, большие суммы выпадают всё реже. Сначала выпадает фон, потом узор, потом модель, номер выпадает случайно. Джекпот (красивый номер вроде #777) выпадает у всех подарков одинаково редко: раз на 10 000 улучшений. У дорогих он ровно +200 TON.</p>
     <div class="pills" id="up-pills" style="padding-top:0"></div>
     <div class="mut" style="margin:10px 0 6px">Ваши обычные подарки (улучшается выбранный):</div><div class="pills" id="up-list" style="padding-top:0"></div>
     <div id="up-stage" class="hero" style="height:190px;margin:8px 0 10px"></div>
@@ -910,6 +910,8 @@ function ini(c){return String(c).split(' ').filter(Boolean).map(w=>w[0]).join(''
 function setHTML(el,h){if(el._h!==h){el._h=h;el.innerHTML=h}}
 function premium(mille){return 1+0.42*Math.log10(30/Math.max(mille,0.5))}
 function feeRate(){return S.vol>=500?0.03:S.vol>=100?0.04:0.05}
+/* улучшенные подарки (с потолком цены) продаются без комиссии: результат апгрейда = вложено ± N TON ровно */
+function feeG(g){return g&&g.ncap>0?0:feeRate()}
 function tierName(){return S.vol>=500?'VIP 3 · комиссия 3%':S.vol>=100?'VIP 2 · комиссия 4%':'VIP 1 · комиссия 5%'}
 function toast(msg,k=''){const e=document.createElement('div');e.className='toast '+k;e.innerHTML=msg;$('toasts').appendChild(e);setTimeout(()=>{e.style.opacity=0;e.style.transition='.3s';setTimeout(()=>e.remove(),300)},3200)}
 function log(title,amt,color){S.hist.unshift({t:title,a:amt,c:color,time:new Date().toTimeString().slice(0,8)});S.hist=S.hist.slice(0,40)}
@@ -1296,7 +1298,7 @@ function unlist(id){
 }
 function instantSell(id){
   const g=S.inv.find(x=>x.id===id);if(!g)return;
-  const pay=+(fair(g)*0.9*(1-feeRate())).toFixed(2);
+  const pay=+(fair(g)*0.9*(1-feeG(g))).toFixed(2);
   completeSale(g,pay,fair(g)*.9,'Мгновенная скупка');
   closeModal();
 }
@@ -1320,7 +1322,7 @@ function claimCashback(){
 function acceptOffer(oid){
   const o=S.offers.find(x=>x.oid===oid);if(!o)return;const g=S.inv.find(x=>x.id===o.gid);
   if(!g){S.offers=S.offers.filter(x=>x.oid!==oid);refresh();return}
-  completeSale(g,+(o.price*(1-feeRate())).toFixed(2),o.price,o.bot);
+  completeSale(g,+(o.price*(1-feeG(g))).toFixed(2),o.price,o.bot);
 }
 function declineOffer(oid){S.offers=S.offers.filter(x=>x.oid!==oid);sfx.click();refresh()}
 
@@ -1354,7 +1356,7 @@ function tick(){
   }
   // боты покупают ваши лоты
   for(const g of S.inv.filter(x=>x.listed)){
-    if(Math.random()<chanceFor(g.price/fair(g))){const b=pick(BOTS);const net=+(g.price*(1-feeRate())).toFixed(2);S.cashback=+(S.cashback+g.price*feeRate()*.2).toFixed(2);completeSale(g,net,g.price,b[0]);break}
+    if(Math.random()<chanceFor(g.price/fair(g))){const b=pick(BOTS);const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);completeSale(g,net,g.price,b[0]);break}
   }
   // входящие офферы: всегда НИЖЕ оценки
   const up=S.inv.filter(x=>!x.base);
@@ -1516,14 +1518,14 @@ function openGift(id,just,keep){
       <div class="row" style="justify-content:space-between"><span class="mut">0</span><span class="mut">оценка</span><span class="mut">+50%</span></div>
       <button class="pill" style="width:100%;justify-content:center;margin-top:10px;height:38px" onclick="$('sell-price').value=0;calcSell(${g.id})">Отдать бесплатно · 0 TON</button>
       <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px;font-size:13px">
-        <div class="row" style="justify-content:space-between"><span class="mut">Комиссия ${(feeRate()*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
+        <div class="row" style="justify-content:space-between"><span class="mut">Комиссия ${(feeG(g)*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
         <div class="row" style="justify-content:space-between;margin-top:4px"><span class="mut">Вы получите</span><b id="sp-net"></b></div>
         <div class="row" style="justify-content:space-between;margin-top:4px"><span class="mut">Чистая прибыль</span><b id="sp-pl"></b></div>
         <div class="row" style="justify-content:space-between;margin-top:4px"><span class="mut">Шанс продажи за ~минуту</span><b id="sp-ch"></b></div>
       </div>
     </div>
     <div class="row" style="gap:8px">
-      ${g.listed?`<button class="buy red" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="buy ghost" style="flex:1" onclick="instantSell(${g.id})">Скупка ${f2(f*.9*(1-feeRate()))}</button>`}
+      ${g.listed?`<button class="buy red" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="buy ghost" style="flex:1" onclick="instantSell(${g.id})">Скупка ${f2(f*.9*(1-feeG(g)))}</button>`}
       <button class="buy" style="flex:1.4" onclick="listGift(${g.id})">${g.listed?'Обновить цену':'Выставить'}</button>
     </div>
     <button class="buy ghost" style="margin-top:8px" onclick="openTransfer(${g.id})">Передать другу</button>`;
@@ -1616,9 +1618,9 @@ async function sendGift(name){
 }
 function calcSell(id){
   const g=S.inv.find(x=>x.id===id);if(!g||!$('sell-price'))return;
-  const v=parseFloat($('sell-price').value)||0,net=v*(1-feeRate()),pl=net-g.bought,r=v/fair(g);
+  const v=parseFloat($('sell-price').value)||0,net=v*(1-feeG(g)),pl=net-g.bought,r=v/fair(g);
   const rng=$('sell-rng');if(rng&&document.activeElement!==rng)rng.value=v;
-  $('sp-fee').textContent='−'+f2(v*feeRate());$('sp-net').textContent=f2(net)+' TON';
+  $('sp-fee').textContent='−'+f2(v*feeG(g));$('sp-net').textContent=f2(net)+' TON';
   $('sp-pl').textContent=(pl>=0?'+':'')+f2(pl)+' TON';$('sp-pl').className=pl>=0?'green':'red';
   const ch=Math.min(99,Math.round((1-Math.pow(1-chanceFor(r),15))*100));$('sp-ch').textContent=ch+'%';$('sp-ch').className=ch>60?'green':ch>25?'amber':'red';
 }
@@ -1629,7 +1631,7 @@ function togglePin(id){const i=S.pinned.indexOf(id);if(i>=0)S.pinned.splice(i,1)
 /* =================== ИНВЕНТАРЬ =================== */
 function renderInv(){
   const val=S.inv.reduce((s,g)=>s+fair(g),0);$('inv-val').innerHTML=f2(val)+' '+TON_SVG;
-  const unreal=S.inv.reduce((s,g)=>s+(g.gr?0:fair(g)*(1-feeRate())-g.bought),0);
+  const unreal=S.inv.reduce((s,g)=>s+(g.gr?0:fair(g)*(1-feeG(g))-g.bought),0);
   $('inv-pl').innerHTML=`Нереализ.: <b class="${unreal>=0?'green':'red'}">${unreal>=0?'+':''}${f2(unreal)}</b>`;
   document.querySelectorAll('#inv-seg button').forEach(b=>b.classList.toggle('on',b.dataset.k===UI.invF));
   let l=S.inv;if(UI.invF==='OWN')l=l.filter(g=>!g.listed);if(UI.invF==='LIST')l=l.filter(g=>g.listed);
@@ -1661,15 +1663,16 @@ function upMult(c){
    дешёвые (флор до 10 TON): обычно ±1…3, реже ±3…5, редко ±5…9;
    средние — масштаб ×1.5…×2.5; дорогие (Pepe и т.п.): обычно ±5…10, реже до ±20 и выше.
    [шанс, знак, от, до, джекпот] — значения для масштаба ×1 */
+/* ШАНСЫ ОДИНАКОВЫЕ У ВСЕХ ПОДАРКОВ: плюс 30% (из них джекпот 0.01% = 1 из 10 000), минус 70%.
+   Размер суммы зависит от цены подарка. [шанс, знак, от, до, джекпот] */
 const UP_TIERS=[
-  [.1998,1,1,3],[.07,1,3,5],[.025,1,5,9],[.004,1,9,15],[.001,1,15,25],[.0002,1,120,150,1],   /* плюс: 30% */
-  [.50,-1,1,3],[.14,-1,3,5],[.045,-1,5,9],[.012,-1,9,15],[.003,-1,15,20]                       /* минус: 70% */
+  [.1999,1,1,3],[.07,1,3,5],[.029,1,5,9],[.001,1,9,15],[.0001,1,120,150,1],   /* плюс: 30% */
+  [.50,-1,1,3],[.14,-1,3,5],[.045,-1,5,9],[.015,-1,9,15]                       /* минус: 70% */
 ];
-/* ДОРОГИЕ подарки (флор от 200 TON: Pepe, Cap, Peach…): плюс в среднем +8…15 (чаще всего 8–12, редко до +20),
-   минус в среднем −8…15. Шанс окупиться 30%. Джекпот: +200 TON с красивым номером, шанс 0.005% (1 из 20 000 апгрейдов) */
+/* ДОРОГИЕ (флор от 200 TON: Pepe, Cap, Peach…): плюс/минус в среднем 8…15 TON. Джекпот — ровно +200 TON, шанс 1 из 10 000 */
 const UP_TIERS_BIG=[
-  [.19995,1,8,12],[.07,1,10,15],[.03,1,13,20],[.00005,1,200,200,1],
-  [.50,-1,6,12],[.15,-1,10,15],[.05,-1,13,20]
+  [.1999,1,8,12],[.07,1,10,15],[.029,1,13,20],[.001,1,15,20],[.0001,1,200,200,1],   /* плюс: 30% */
+  [.50,-1,6,12],[.14,-1,10,15],[.045,-1,13,20],[.015,-1,15,20]                       /* минус: 70% */
 ];
 /* множитель размера для обычных (не дорогих) коллекций */
 function upScale(c){
@@ -1748,7 +1751,7 @@ function doUpgrade(){
      Потолок плюса: не больше +100% вложенного и не больше +2500 TON; у джекпота потолок только защитный (+50 000) */
   const invested=+(g.bought+cost).toFixed(2),sup=COLS[g.col].supply;
   const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
-  const roll=rollUp(invested,g.col),ncapV=roll.target;roll.target=+(roll.target/(1-feeRate())).toFixed(2); /* оценка считается «брутто», чтобы после комиссии на руки вышло ровно invested ± N TON */
+  const roll=rollUp(invested,g.col),ncapV=roll.target; /* оценка = вложено ± N TON, комиссии у улучшенных подарков нет */
   const rs=roll.jp?rareForce(Math.min(sup,100000),used):0; /* джекпот: красивый номер */
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
   /* бросаем «кейс»: сначала выпадает множитель от вложенного (30% плюс / 70% минус),
@@ -1867,7 +1870,7 @@ function spark(arr,up){
 }
 function renderOffers(){
   $('off-cnt').textContent=S.offers.length;
-  setHTML($('offers'),S.offers.length?S.offers.map(o=>{const g=S.inv.find(x=>x.id===o.gid);if(!g)return'';const net=o.price*(1-feeRate())-g.bought;const left=Math.max(0,Math.round((o.exp-Date.now())/1000));
+  setHTML($('offers'),S.offers.length?S.offers.map(o=>{const g=S.inv.find(x=>x.id===o.gid);if(!g)return'';const net=o.price*(1-feeG(g))-g.bought;const left=Math.max(0,Math.round((o.exp-Date.now())/1000));
     return `<div class="panel row" style="gap:10px"><div style="width:42px;height:42px;border-radius:14px;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:20px">${o.av}</div>
     <div style="flex:1;min-width:0"><b style="font-size:13px">${o.bot}</b><div class="mut">${g.col} #${g.serial} · ${left}с</div><div style="font-size:13px"><b>${f2(o.price)}</b> TON <span class="${net>=0?'green':'red'}" style="font-weight:700">(${net>=0?'+':''}${f2(net)})</span></div></div>
     <button class="buy green" style="width:auto;padding:0 14px" onclick="acceptOffer(${o.oid})">Принять</button><button class="buy ghost" style="width:38px" onclick="declineOffer(${o.oid})">✕</button></div>`}).join(''):'<div class="panel mut" style="text-align:center">Офферы появляются со временем. Обычно они чуть ниже рыночной оценки.</div>');
@@ -2153,7 +2156,7 @@ function applyGrants(list){
       if(!COLS[gr.col])continue;
       const sn=Math.max(0,Math.min(1000000,Math.floor(Number(gr.serial))||0));let g;
       if(sn<=0)g={id:S.nextId++,col:gr.col,serial:0,mi:0,bi:0,pi:0,price:0,bought:baseCost(gr.col),listed:false,mine:true,base:true,seller:'me',at:Date.now(),gr:1};
-      else{g=mkGift({col:gr.col,serial:sn,mine:true,seller:'me'});g.nw=0;g.gr=1;if(gr.vmul>0)g.vmul=Math.min(1000,Number(gr.vmul));if(gr.vcap>0)g.vcap=Math.min(1e7,Number(gr.vcap));g.bought=fair(g)}
+      else{g=mkGift({col:gr.col,serial:sn,mine:true,seller:'me'});g.nw=0;g.gr=1;if(gr.vmul>0)g.vmul=Math.min(1000,Number(gr.vmul));if(gr.vcap>0){g.vcap=Math.min(1e7,Number(gr.vcap));g.ncap=g.vcap}g.bought=fair(g)}
       S.inv.unshift(g);
       const who=gr.from?String(gr.from).replace(/[^A-Za-z0-9_]/g,''):'';
       if(who){recv.push('@'+who+' передал(а) вам '+gr.col+(sn?' #'+sn:''));log('Подарок от @'+who+': '+gr.col+(sn?' #'+sn:''),'подарок','emerald')}
@@ -2303,10 +2306,7 @@ go('market');
     requestAnimationFrame(loop);
   })(last);
 })();
-/* вибрация при каждом нажатии на кнопки, карточки, вкладки и ползунки */
-document.addEventListener('pointerdown',e=>{
-  try{if(e.target.closest&&e.target.closest('button,.card,.art,.pill,.chip,.urow,.tg-line,.tr,.hero,.trk,select,input,.x,.seg,.mtabs'))vib(10)}catch(_){}
-},true);
+/* вибрация только на важных событиях (покупка, продажа, апгрейд, оффер), не на каждом нажатии */
 /* автосохранение: при любом изменении, при сворачивании и закрытии вкладки */
 window.addEventListener('pagehide',save);window.addEventListener('beforeunload',save);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
