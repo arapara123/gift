@@ -1,10 +1,8 @@
-/* Portals Market — сервер аккаунтов (Cloudflare Worker + D1)
-   Маршруты /api/*; всё остальное отдаёт статика из папки public. */
 
 const enc = new TextEncoder();
-const ITER = 60000;                 /* итерации PBKDF2 (максимум в Workers — 100000). Хеш хранит своё число итераций */
-const SESSION_MS = 30 * 864e5;      /* токен живёт 30 дней */
-const ADMIN = 'admin';              /* единственный аккаунт-администратор (регистр важен) */
+const ITER = 60000;
+const SESSION_MS = 30 * 864e5;
+const ADMIN = 'admin';
 const COL_RE = /^[A-Za-z0-9' \-]{1,30}$/;
 
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
@@ -44,7 +42,6 @@ async function init(db) {
   ready = true;
 }
 
-/* ограничение частоты: не больше max попыток за окно windowMs */
 async function limited(db, key, max, windowMs) {
   const now = Date.now();
   const r = await db.prepare('SELECT n, ts FROM attempts WHERE k = ?').bind(key).first();
@@ -75,7 +72,6 @@ async function auth(req, env) {
 }
 const banMsg = r => 'Аккаунт заблокирован' + (r && r.length ? ': ' + r : '');
 
-/* вошедший и не заблокированный пользователь, либо готовый ответ с ошибкой */
 async function authed(req, env) {
   const u = await auth(req, env);
   if (!u) return { res: err('Нужно войти', 401) };
@@ -131,7 +127,6 @@ async function login(req, env) {
   return json({ token: await newSession(env, u.id), username: u.username });
 }
 
-/* публичная карточка игрока строится на сервере из сохранения — клиенту не доверяем */
 function buildProfile(d, worth) {
   const p = d.prof || {};
   const inv = d.inv.filter(g => g && !g.base && typeof g.col === 'string');
@@ -150,7 +145,9 @@ function buildProfile(d, worth) {
       profit: num(d.profit, -1e7, 1e7), flips: int(d.flips, 0, 1e7), best: num(d.best, -1e7, 1e7),
       vol: num(d.vol, 0, 1e9), spent: num(d.spent, 0, 1e9)
     },
-    worth: num(worth, 0, 1e9)
+    worth: num(worth, 0, 1e9),
+    ev: int(d.ev && d.ev.earned, 0, 1e7),
+    vc: d.ev && d.ev.badge ? 1 : 0
   };
 }
 
@@ -167,8 +164,6 @@ async function save(req, env, user) {
   const prev = await env.DB.prepare('SELECT data, updated FROM saves WHERE user_id = ?').bind(user.id).first();
   if (prev && now - prev.updated < 1500) return err('Слишком часто', 429);
 
-  /* выдачи администратора, которые клиент подтверждает как применённые:
-     берём только реальные, ещё не применённые выдачи этого же игрока */
   let ack = [];
   if (Array.isArray(b.ack)) ack = [...new Set(b.ack.map(Number).filter(n => Number.isInteger(n) && n > 0))].slice(0, 50);
   let gr = [];
@@ -181,13 +176,7 @@ async function save(req, env, user) {
   let tonCredit = 0;
   for (const r of gr) if (r.kind === 'ton') { const p = parse(r.payload) || {}; if (p.amount > 0) tonCredit += p.amount; }
 
-  /* лёгкая защита от накрутки: прирост баланса/прибыли ограничен прошедшим временем.
-     Выданные админом TON добавляются к допустимому приросту баланса (но не прибыли и не оборота) */
-  /* ЗАЩИТА ОТ НАКРУТКИ ОТКЛЮЧЕНА: рост баланса, прибыли и оборота больше не ограничивается.
-     Остались только базовые проверки выше (баланс от 0 до 1 000 000 TON). */
 
-  /* если админ сбросил статистику, а клиент ещё не подтвердил это (не применил выдачу) —
-     старые цифры из его сохранения не принимаем, иначе они вернутся обратно */
   {
     const rs = await env.DB.prepare("SELECT id FROM grants WHERE user_id = ? AND applied = 0 AND kind = 'reset-stats'").bind(user.id).all();
     if ((rs.results || []).some(r => !ack.includes(r.id))) { d.profit = 0; d.flips = 0; d.best = 0; d.vol = 0; d.spent = 0; }
@@ -203,8 +192,6 @@ async function save(req, env, user) {
   return json({ ok: true, t: now });
 }
 
-/* передача подарка другому игроку: подарок должен реально лежать в сохранении отправителя;
-   сервер сам убирает его оттуда и создаёт выдачу получателю (применяется при его следующем входе) */
 async function transfer(req, env, u) {
   let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
   const t = await findUser(env, b.user);
@@ -243,7 +230,6 @@ async function pendingGrants(env, userId) {
   return results.map(r => Object.assign({ id: r.id, kind: r.kind }, parse(r.payload) || {}));
 }
 
-/* ================= АДМИНИСТРАТОР ================= */
 async function findUser(env, name) {
   name = String(name || '');
   if (!USER_RE.test(name)) return null;
@@ -271,7 +257,7 @@ async function adminRoute(req, env, url, path, m, u) {
         const p = parse(r.profile) || {}, st = p.stats || {};
         return {
           username: r.username, name: p.name || r.username, worth: p.worth || 0, profit: st.profit || 0,
-          count: p.count || 0, seen: r.updated || 0, banned: !!r.banned, reason: r.ban_reason || ''
+          count: p.count || 0, ev: p.ev || 0, seen: r.updated || 0, banned: !!r.banned, reason: r.ban_reason || ''
         };
       })
     });
@@ -296,8 +282,6 @@ async function adminRoute(req, env, url, path, m, u) {
   }
 
   if (path === '/api/admin/reset-stats') {
-    /* обнуляем статистику сразу в сохранении и профиле, а игроку отправляем команду,
-       чтобы его устройство тоже обнулилось и не перезаписало сервер старыми цифрами */
     const row = await env.DB.prepare('SELECT data, profile FROM saves WHERE user_id = ?').bind(t.id).first();
     const stmts = [env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
       .bind(t.id, 'reset-stats', '{}', Date.now())];
@@ -315,17 +299,26 @@ async function adminRoute(req, env, url, path, m, u) {
 
   if (path === '/api/admin/give-ton') {
     const amount = Math.round(Number(b.amount) * 100) / 100;
-    if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 500000) return err('Сумма: от 0.01 до 500000 TON (можно со знаком минус)');
+    if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 500000) return err('Сумма: от 0.01 до 500000 GRAM (можно со знаком минус)');
     await env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
       .bind(t.id, 'ton', JSON.stringify({ amount }), Date.now()).run();
     await adminLog(env, u.username, 'give-ton', t.username, amount);
     return json({ ok: true });
   }
 
+  if (path === '/api/admin/give-stars') {
+    const amount = Math.round(Number(b.amount));
+    if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 1000000) return err('Количество: от 1 до 1000000');
+    await env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
+      .bind(t.id, 'stars', JSON.stringify({ amount }), Date.now()).run();
+    await adminLog(env, u.username, 'give-stars', t.username, amount);
+    return json({ ok: true });
+  }
+
   if (path === '/api/admin/give-gift') {
     const col = String(b.col || '');
     if (!COL_RE.test(col)) return err('Неверная коллекция');
-    const serial = int(b.serial, 0, 1000000);   /* 0 — обычный (неулучшенный) подарок */
+    const serial = int(b.serial, 0, 1000000);
     await env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) VALUES (?, ?, ?, ?)')
       .bind(t.id, 'gift', JSON.stringify({ col, serial }), Date.now()).run();
     await adminLog(env, u.username, 'give-gift', t.username, col + ' #' + serial);
@@ -373,7 +366,6 @@ async function route(req, env, url) {
     return adminRoute(req, env, url, path, m, a.u);
   }
 
-  /* публичные: профиль, поиск, топ */
   if (path.startsWith('/api/user/') && m === 'GET') {
     const name = decodeURIComponent(path.slice(10));
     if (!USER_RE.test(name)) return err('Игрок не найден', 404);
@@ -404,15 +396,16 @@ async function route(req, env, url) {
     const list = results.map(r => {
       const p = parse(r.profile) || {};
       const st = p.stats || {};
-      return { username: r.username, name: p.name || r.username, profit: st.profit || 0, flips: st.flips || 0, worth: p.worth || 0, count: p.count || 0 };
-    }).sort((a, b) => b.profit - a.profit).slice(0, 20);
-    return json({ users: list });
+      return { username: r.username, name: p.name || r.username, profit: st.profit || 0, flips: st.flips || 0, worth: p.worth || 0, count: p.count || 0, ev: p.ev || 0 };
+    });
+    const byEv = list.filter(x => x.ev > 0).sort((a, b) => b.ev - a.ev).slice(0, 20);
+    const top = list.sort((a, b) => b.profit - a.profit).slice(0, 20);
+    for (const x of byEv) if (!top.includes(x)) top.push(x);
+    return json({ users: top });
   }
   return err('Не найдено', 404);
 }
 
-/* Прокси картинок и данных подарков Fragment: браузер ходит на наш сайт, а не на nft.fragment.com
-   (у части пользователей Fragment и обычные прокси заблокированы). Хост зашит в коде, поэтому открытым прокси это не является. */
 const IMG_RE = /^\/img\/([a-z0-9]{3,30})-(\d{1,7})\.(jpg|json)$/;
 async function imgProxy(url) {
   const m = IMG_RE.exec(url.pathname);
@@ -422,7 +415,7 @@ async function imgProxy(url) {
   let r;
   try {
     r = await fetch('https://nft.fragment.com/gift/' + m[1] + '-' + n + (jpg ? '.medium.jpg' : '.json'), {
-      headers: { 'user-agent': 'Mozilla/5.0 (compatible; PortalsGame)' },
+      headers: { 'user-agent': 'Mozilla/5.0' },
       cf: { cacheEverything: true, cacheTtl: 2592000 }
     });
   } catch (e) { return new Response('Bad gateway', { status: 502 }); }
