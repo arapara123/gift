@@ -680,7 +680,31 @@ let snd=(function(){try{return localStorage.getItem('pr_snd')!=='0'}catch(e){ret
 function beep(f,d=.08,t='sine',v=.08,at=0){if(!snd)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime+at;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(ac.destination);o.start(n);o.stop(n+d)}catch(e){}}
 const sfx={click:()=>beep(420,.04),buy:()=>{beep(440,.1,'triangle',.12);beep(660,.12,'triangle',.12,.07)},sale:()=>[587,880,1175].forEach((f,i)=>beep(f,.22,'sine',.12,i*.07)),offer:()=>{beep(523,.14);beep(659,.16,'sine',.08,.09)},tick:()=>beep(900,.03,'sine',.04)};
 function toggleSound(){snd=!snd;try{localStorage.setItem('pr_snd',snd?'1':'0')}catch(e){}$('snd').textContent=snd?'Звук':'Тихо'}
-function vib(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
+/* вибрация: 1) Telegram Mini App — родной haptic Telegram (работает и на iPhone);
+   2) Android/Chrome — navigator.vibrate; 3) iPhone в Safari — трюк с переключателем (iOS 17.4+) */
+let _hx=null;
+function vib(p){
+  try{
+    const tg=window.Telegram&&Telegram.WebApp,hf=tg&&tg.HapticFeedback;
+    if(hf&&tg.initData){
+      if(Array.isArray(p))hf.notificationOccurred('success');
+      else hf.impactOccurred(p>=30?'medium':'light');
+      return;
+    }
+  }catch(e){}
+  try{if(navigator.vibrate&&navigator.vibrate(p))return}catch(e){}
+  try{
+    if(!_hx){
+      const l=document.createElement('label');
+      l.style.cssText='position:fixed;left:-99px;top:-99px;opacity:0;pointer-events:none';
+      l.setAttribute('aria-hidden','true');
+      const i=document.createElement('input');i.type='checkbox';i.setAttribute('switch','');
+      l.appendChild(i);document.body.appendChild(l);_hx=l;
+    }
+    _hx.click();
+    if(Array.isArray(p))setTimeout(()=>{try{_hx.click()}catch(e){}},90);
+  }catch(e){}
+}
 function confetti(n=70){
   const c=document.createElement('canvas');c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:98';
   c.width=innerWidth;c.height=innerHeight;document.body.appendChild(c);const x=c.getContext('2d');
