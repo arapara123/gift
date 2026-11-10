@@ -1589,7 +1589,8 @@ function openPicker(kind){
 }
 
 const NO_UP=new Set(['Algorithm Cup','Intelligence Cup']);
-const UP_P=.20,UPQ={};
+const UP_P=.30,UPQ={};
+function craftValue(g,V,I){const u=unitOf(g),lr=Math.log(Math.max(V,.01)/I),d=Math.sign(lr)*Math.min(3.5,Math.abs(lr)*3)*u;return +Math.max(.5,I+d).toFixed(2)}
 function upMult(c){
   if(UPQ[c])return UPQ[c];
   const sup=COLS[c].supply,r=seeded(hash('upq:'+c)),v=[],f=S.floors[c]||COLS[c].floor;
@@ -1647,12 +1648,10 @@ function doUpgrade(){
   $('up-btn').disabled=true;
   const invested=+(g.bought+cost).toFixed(2),sup=COLS[g.col].supply;
   const used=new Set([...S.inv,...S.market].filter(x=>x.col===g.col&&x.serial>0).map(x=>x.serial));
-  const roll=rollUp(invested,g.col),ncapV=roll.target;
+  const roll=rollUp(invested,g.col);
   const rs=roll.jp?rareForce(Math.min(sup,100000),used):0;
   const mk=sn=>{sn=Math.max(1,Math.floor(Number(sn))||1);const tr=traits(g.col,sn);return{sn,tr,f:fair({col:g.col,serial:sn,mi:tr.mi,bi:tr.bi,pi:tr.pi,base:false})}};
-  let pickd,vcapV=roll.target;
-  if(rs)pickd=mk(rs);
-  else{let best=null;for(let i=0;i<250;i++){const c=mk(plainSerial(sup,used));if(!best||Math.abs(Math.log(c.f/vcapV))<Math.abs(Math.log(best.f/vcapV)))best=c}pickd=best}
+  const pickd=mk(rs||plainSerial(sup,used));
   const serial=pickd.sn,r=Object.assign({col:g.col,serial},pickd.tr),jackpot=!!rs;
   let rdone=UI.render!=='CDN',realAttrs=null,smp=null;
   if(!rdone)Promise.all([
@@ -1702,8 +1701,9 @@ function doUpgrade(){
     Object.assign(g,{mi:r.mi,bi:finalBi(),pi:r.pi,serial:r.serial,base:false,bought:+(g.bought+cost).toFixed(2)});
     if(smp){g.sm=smp.sm;g.bsync=3}
     g.real=realAttrs||undefined;
-    delete g.vmul;g.vcap=0;const raw=fair(g);if(raw>0&&raw<vcapV)g.vmul=+(vcapV/raw).toFixed(4);
-    g.vcap=vcapV;g.ncap=ncapV;g.fixv=ncapV;
+    delete g.vmul;delete g.fixv;g.vcap=0;g.ncap=0;
+    const V=fair(g),val=jackpot?Math.max(roll.target,craftValue(g,V,invested)):craftValue(g,V,invested);
+    g.vcap=val;g.ncap=val;g.fixv=val;
     const fu=IMG_URL[slug+'-'+r.serial];
     if(fu){
       ug.animate([{transform:'scale(1)',opacity:1},{transform:'scale(.6)',opacity:0}],{duration:220,easing:'ease-in',fill:'forwards'});
