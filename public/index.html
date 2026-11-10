@@ -1289,7 +1289,7 @@ function buy(id){
 function listGift(id){
   const g=S.inv.find(x=>x.id===id),v=parseFloat($('sell-price').value);
   if(!g||!(v>=0)){toast('Введите цену от 0 TON','bad');return}
-  g.price=+v.toFixed(2);g.listed=true;if(!S.market.find(x=>x.id===id))S.market.unshift(g);
+  g.price=+(g.ncap>0?Math.min(v,g.ncap):v).toFixed(2);g.listed=true;if(!S.market.find(x=>x.id===id))S.market.unshift(g);
   sfx.click();closeModal();toast(g.price===0?` ${g.col} #${g.serial} выставлен бесплатно`:` ${g.col} #${g.serial} выставлен за ${f2(g.price)} TON`,'ok');refresh();
 }
 function unlist(id){
@@ -1505,7 +1505,7 @@ function openGift(id,just,keep){
   UI.openId=g.id;const R=g.real||{};
   let action;
   if(g.mine){
-    const d=g.listed?g.price:Math.max(+(f*1.05).toFixed(2),0.5);
+    const d=g.listed?g.price:Math.max(+(f*(g.ncap>0?1:1.05)).toFixed(2),0.5);
     action=`${just?'<div class="panel" style="padding:10px 14px;border-color:rgba(52,210,123,.5)" ><b class="green"> Подарок ваш!</b> <span class="mut">Можно надеть статус или выставить на продажу.</span></div>':''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <button class="pill ${worn?'on':''}" style="height:42px;justify-content:center" onclick="toggleWear(${g.id})">${worn?'Статус надет':'Надеть статус'}</button>
@@ -1514,8 +1514,8 @@ function openGift(id,just,keep){
     <div class="panel">
       <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="mut">Куплен: <b style="color:#fff">${f2(g.bought)}</b></span><span class="mut">Оценка: <b class="green">${f2(f)}</b></span></div>
       <input id="sell-price" class="input" type="number" step="0.1" min="0" value="${d}" oninput="calcSell(${g.id})">
-      <input type="range" id="sell-rng" min="0" max="${(f*1.5).toFixed(2)}" step="any" value="${d}" style="margin:14px 0 4px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id})">
-      <div class="row" style="justify-content:space-between"><span class="mut">0</span><span class="mut">оценка</span><span class="mut">+50%</span></div>
+      <input type="range" id="sell-rng" min="0" max="${(f*(g.ncap>0?1:1.5)).toFixed(2)}" step="any" value="${d}" style="margin:14px 0 4px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id})">
+      <div class="row" style="justify-content:space-between"><span class="mut">0</span><span class="mut">оценка</span><span class="mut">${g.ncap>0?'макс.':'+50%'}</span></div>
       <button class="pill" style="width:100%;justify-content:center;margin-top:10px;height:38px" onclick="$('sell-price').value=0;calcSell(${g.id})">Отдать бесплатно · 0 TON</button>
       <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:10px;font-size:13px">
         <div class="row" style="justify-content:space-between"><span class="mut">Комиссия ${(feeG(g)*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
@@ -1618,7 +1618,7 @@ async function sendGift(name){
 }
 function calcSell(id){
   const g=S.inv.find(x=>x.id===id);if(!g||!$('sell-price'))return;
-  const v=parseFloat($('sell-price').value)||0,net=v*(1-feeG(g)),pl=net-g.bought,r=v/fair(g);
+  const v=parseFloat($('sell-price').value)||0,net=Math.min(v*(1-feeG(g)),g.ncap>0?g.ncap:1e12),pl=net-g.bought,r=v/fair(g);
   const rng=$('sell-rng');if(rng&&document.activeElement!==rng)rng.value=v;
   $('sp-fee').textContent='−'+f2(v*feeG(g));$('sp-net').textContent=f2(net)+' TON';
   $('sp-pl').textContent=(pl>=0?'+':'')+f2(pl)+' TON';$('sp-pl').className=pl>=0?'green':'red';
