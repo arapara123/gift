@@ -21,6 +21,6 @@
     "APP_SHORTNAME": ""
   },
   "triggers": {
-    "crons": ["*/5 * * * *"]
+    "crons": ["* * * * *"]
   }
 }

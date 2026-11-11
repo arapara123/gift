@@ -64,8 +64,9 @@ async function tgSend(env, chatId, text) {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, reply_markup: link ? { inline_keyboard: [[{ text: 'Открыть Portals Market', url: link }]] } : undefined })
     });
+    if (!r.ok) console.error('tgSend failed', r.status, await r.text().catch(() => ''));
     return r.ok;
-  } catch (e) { return false; }
+  } catch (e) { console.error('tgSend error', e && e.message); return false; }
 }
 async function checkInit(initData, token) {
   if (!token || typeof initData !== 'string' || initData.length > 4096) return null;
@@ -402,14 +403,14 @@ async function cron(env) {
   const { results } = await env.DB.prepare(
     'SELECT s.user_id, s.data, s.profile, s.updated, t.tg_id, c.at FROM saves s LEFT JOIN tglink t ON t.user_id = s.user_id LEFT JOIN cronat c ON c.user_id = s.user_id ' +
     'WHERE s.updated < ? AND s.updated > ? AND NOT EXISTS (SELECT 1 FROM bans b WHERE b.user_id = s.user_id) ORDER BY s.updated DESC LIMIT 300'
-  ).bind(now - 4 * 60e3, now - 14 * 864e5).all();
+  ).bind(now - 90e3, now - 14 * 864e5).all();
   const marks = [];
   for (const row of results) {
     const d = parse(row.data);
     if (!d || !Array.isArray(d.inv) || !Number.isFinite(d.ton)) continue;
     const last = Math.max(row.at || 0, row.updated || 0), mins = Math.min(120, (now - last) / 60e3);
     marks.push(env.DB.prepare('INSERT OR REPLACE INTO cronat (user_id, at) VALUES (?, ?)').bind(row.user_id, now));
-    if (mins < 1) continue;
+    if (mins < 0.5) continue;
     const msgs = [], away = [];
     let changed = false;
     for (const g of [...d.inv]) {
@@ -708,6 +709,6 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
-    if (env.DB) ctx.waitUntil(cron(env).catch(() => {}));
+    if (env.DB) ctx.waitUntil(cron(env).catch(e => console.error('cron failed', e && e.stack || e)));
   }
 };
