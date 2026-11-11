@@ -1044,6 +1044,7 @@ function niceAsk(v){
 }
 function marketPrice(g){
   const f=fair(g),plain=fair(g,false,true);
+  if(Math.random()<.025){g.oops=1;return +Math.max(.5,S.floors[g.col]*rnd(.72,.93)).toFixed(2)}
   if(f>plain*1.25&&Math.random()<.05)return niceAsk(Math.max(plain*rnd(.95,1.15),S.floors[g.col]*rnd(1,1.04)));
   return botReprice(g);
 }
@@ -1153,7 +1154,7 @@ let _bdT=0;
 function bdDirty(g){
   clearTimeout(_bdT);
   _bdT=setTimeout(()=>{
-    if(UI.tab==='market')renderMarket();else if(UI.tab==='inv')renderInv();
+    if(UI.tab==='market'){UI.soft=true;try{renderMarket()}finally{UI.soft=false}}else if(UI.tab==='inv')renderInv();
     if(g&&UI.openId===g.id&&!$('modal').classList.contains('hidden'))openGift(g.id,false,true);
     saveSoon();
   },250);
@@ -1236,7 +1237,9 @@ function refillMarket(){
 }
 
 function buy(id){
-  const g=S.market.find(x=>x.id===id);if(!g||g.mine)return;
+  const g=S.market.find(x=>x.id===id);
+  if(!g){toast('Этот подарок уже купили','bad');renderMarket();return}
+  if(g.mine)return;
   if(S.ton<g.price){toast(`Не хватает ${f2(g.price-S.ton)} GRAM`,'bad');return}
   S.ton=+(S.ton-g.price).toFixed(2);S.vol=+(S.vol+g.price).toFixed(2);S.cashback=+(S.cashback+g.price*.015).toFixed(2);S.spent+=g.price;
   S.market=S.market.filter(x=>x.id!==id);
@@ -1292,7 +1295,15 @@ function tick(){
     const p=Math.round((k-1)*100);feed(`<b>${c}</b>: флор ${p>0?'+':''}${p}%`);
   }
   const oth=S.market.filter(x=>!x.mine);
-  for(let i=0;i<8&&oth.length;i++){const g=pick(oth),old=g.price,tg=botReprice(g);g.price=+Math.max(.5,old+(tg-old)*rnd(.3,.85)).toFixed(2);g.fl=g.price<old?-1:g.price>old?1:0}
+  /* Лоты ниже флора: почти всегда подтягиваем к флору, лишь изредка оставляем как "ошибочно выставленный" */
+  oth.forEach(g=>{
+    if(g.foreign||g.oops===1||!S.floors[g.col])return;
+    const fl=S.floors[g.col];
+    if(g.price>=fl*.95){if(g.oops===2)g.oops=0;return}
+    if(g.oops==null||g.oops===0)g.oops=Math.random()<.04?1:2;
+    if(g.oops===2){g.price=+Math.max(niceAsk(fl*rnd(1,1.03)),fl).toFixed(2);g.oops=0;g.fl=1}
+  });
+  for(let i=0;i<8&&oth.length;i++){const g=pick(oth);if(g.oops===1)continue;const old=g.price,tg=botReprice(g);g.price=+Math.max(.5,old+(tg-old)*rnd(.3,.85)).toFixed(2);g.fl=g.price<old?-1:g.price>old?1:0}
   for(const g of S.inv.filter(x=>x.listed)){
     if(Math.random()<chanceFor(ratioOf(g,g.price))){const b=pick(BOTS);const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);completeSale(g,net,g.price,b);break}
   }
@@ -1429,19 +1440,11 @@ function renderList(el,items,keyFn,htmlFn,emptyHtml){
 }
 function softOrder(el,all,lim){
   if(!el._keyed||!el._keyed.size||el._h!=null)return all.slice(0,lim);
-  const sc=el.closest('.scroll'),st=sc?sc.getBoundingClientRect().top:0;
-  const byId=new Map(all.map((g,i)=>[g.id,i])),keep=[];
-  let firstVis=-1;
-  el._keyed.forEach((node,k)=>{if(!byId.has(k))return;keep.push(k);if(firstVis<0&&node.getBoundingClientRect().bottom>st+40)firstVis=keep.length-1});
-  if(firstVis<0)firstVis=keep.length;
-  const kset=new Set(keep);
-  for(const g of all.slice(0,lim)){
-    if(kset.has(g.id))continue;
-    const s=byId.get(g.id);let pos=keep.findIndex(k=>byId.get(k)>s);if(pos<0)pos=keep.length;
-    if(pos<=firstVis)continue;
-    keep.splice(pos,0,g.id);kset.add(g.id);
-  }
-  return keep.slice(0,lim).map(k=>all[byId.get(k)]);
+  /* Фоновые обновления не меняют порядок и состав карточек: только цены на месте.
+     Проданные ботами остаются на месте до следующего действия пользователя. */
+  const byId=new Map(all.map(g=>[g.id,g])),out=[];
+  el._keyed.forEach((node,k)=>{const g=byId.get(k)||(el._lg&&el._lg.get(k));if(g)out.push(g)});
+  return out;
 }
 function giftCard(g,mode){
   if(g.base)return `<div class="card"><div class="art" style="background:#2e3540" onclick="openCraft(${g.id})"><span class="ini">${ini(g.col)}</span><span class="badge tl">Обычный</span></div><div class="ctitle">${g.col}</div><div class="cid">не улучшен</div><button class="btn purple" onclick="openCraft(${g.id})">Крафт</button></div>`;
@@ -1484,6 +1487,7 @@ function renderMarket(){
   $('fp-mdn').textContent=UI.tier!=='ALL'?1:0;$('fp-md').classList.toggle('on',UI.tier!=='ALL');
   $('fx').classList.toggle('off',!(nF||UI.pq!=null||UI.q.trim()));
   const base=visibleBase(),all=visible(),lim=UI.lim||60,l=UI.soft?softOrder($('mgrid'),all,lim):all.slice(0,lim),cap=priceCap(base);
+  {const G=$('mgrid');if(!UI.soft||!G._lg)G._lg=new Map();l.forEach(g=>G._lg.set(g.id,g))}
   $('more').classList.toggle('hidden',all.length<=lim);$('more').textContent='Показать ещё';
   const aff=base.filter(g=>g.price<=S.ton).length,p=UI.pq!=null?UI.pq:(base.length?aff/base.length*100:0);
   if(cap!=null){$('bal-t').textContent='до '+f2(cap)+' GRAM';$('bal-s').textContent=all.length+' '+plural(all.length,'подарок','подарка','подарков')}
