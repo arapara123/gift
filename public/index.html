@@ -1553,14 +1553,14 @@ function openGift(id,just,keep){
   UI.openId=g.id;const R=g.real||{};
   let action;
   if(g.mine){
-    const d=g.listed?g.price:Math.max(+(g.ncap>0?f:f*1.05).toFixed(2),0.5);
+    const big=isBig(g),bg2=big?bigGross(g):0,d=g.listed?g.price:big?Math.max(+Math.min(f*1.05,bg2).toFixed(2),0.5):Math.max(+(g.ncap>0?f:f*1.05).toFixed(2),0.5);
     action=`<div class="row" style="margin-bottom:10px">
       <button class="pill ${worn?'on':''}" style="flex:1;height:40px;justify-content:center" onclick="toggleWear(${g.id})">${worn?'Статус надет':'Надеть статус'}</button>
       <button class="pill ${pin?'on':''}" style="flex:1;height:40px;justify-content:center" onclick="togglePin(${g.id})">${pin?'В профиле':'Показать в профиле'}</button></div>
     <div class="panel">
       <div class="row sb" style="margin-bottom:10px"><span class="mut">Куплен за <b style="color:#fff">${f2(g.bought)}</b></span><span class="mut">Оценка <b class="green">${f2(f)}</b></span></div>
       <input id="sell-price" class="input" type="number" inputmode="decimal" step="0.01" min="0" value="${d}" oninput="calcSell(${g.id})">
-      <input type="range" id="sell-rng" min="${g.ncap>0?Math.max(0,f-3*unitOf(g)).toFixed(2):(f*.5).toFixed(2)}" max="${g.ncap>0?maxPrice(g):(f*1.5).toFixed(2)}" step="any" value="${d}" style="margin:16px 0 6px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id});const k=Math.round(this.value/((this.max-this.min)/24||1));if(k!==this._k){this._k=k;haptic('select')}">
+      <input type="range" id="sell-rng" min="${g.ncap>0?Math.max(0,f-3*unitOf(g)).toFixed(2):(big?Math.min(f*.5,g.bought*.8):f*.5).toFixed(2)}" max="${g.ncap>0?maxPrice(g):(big?Math.min(f*1.5,bg2*1.15):f*1.5).toFixed(2)}" step="any" value="${d}" style="margin:16px 0 6px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id});const k=Math.round(this.value/((this.max-this.min)/24||1));if(k!==this._k){this._k=k;haptic('select')}">
       <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px;font-size:13.5px;line-height:1.75">
         <div class="row sb"><span class="mut">Комиссия ${(feeG(g)*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
         <div class="row sb"><span class="mut">Вы получите</span><b id="sp-net"></b></div>
@@ -2404,6 +2404,30 @@ setInterval(tick,3000);
 setInterval(()=>{evInit();if(UI.tab==='games'&&!wBusy)renderGames()},30000);
 setInterval(()=>{if(TOKEN&&!CLOUD_READY)syncDown()},10000);
 setInterval(()=>pullGrants(),20000);
+/* Закрытие шторки свайпом вниз */
+(function(){
+  const m=$('modal'),sh=$('sheet');let y0=0,dy=0,on=false,ok=false,t0=0;
+  const reset=()=>{sh.style.transition='';sh.style.transform='';m.style.background=''};
+  sh.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1||m.classList.contains('closing')){ok=false;return}
+    ok=sh.scrollTop<=0&&!e.target.closest('input,select,textarea');
+    y0=e.touches[0].clientY;dy=0;on=false;t0=Date.now();
+  },{passive:true});
+  sh.addEventListener('touchmove',e=>{
+    if(!ok)return;const d=e.touches[0].clientY-y0;
+    if(!on){if(d>8&&sh.scrollTop<=0){on=true;sh.style.transition='none'}else if(d<-4){ok=false;return}}
+    if(on){dy=Math.max(0,d);sh.style.transform='translateY('+dy+'px)';m.style.background='rgba(0,0,0,'+(.6*Math.max(.15,1-dy/500)).toFixed(2)+')';if(e.cancelable)e.preventDefault()}
+  },{passive:false});
+  const end=()=>{
+    if(!on)return;on=false;
+    const v=dy/Math.max(1,Date.now()-t0);
+    if(dy>110||(v>.6&&dy>40)){
+      sh.style.transition='transform .2s cubic-bezier(.4,0,1,1)';sh.style.transform='translateY(100%)';
+      setTimeout(()=>{clearTimeout(UI._mc);UI.cpq='';tgBack(UI.tab==='wallet');m.classList.add('hidden');m.classList.remove('closing');reset()},200);
+    }else{sh.style.transition='transform .22s cubic-bezier(.2,.9,.3,1)';sh.style.transform='';m.style.background='';setTimeout(()=>{sh.style.transition=''},230)}
+  };
+  sh.addEventListener('touchend',end);sh.addEventListener('touchcancel',end);
+})();
 initAuth();
 </script>
 </body>
