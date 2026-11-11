@@ -807,9 +807,9 @@ function setHTML(el,h){if(el&&el._h!==h){el._h=h;el.innerHTML=h}}
 function premium(mille){return 1+0.42*Math.log10(30/Math.max(mille,0.5))}
 function feeRate(){return S.vol>=500?0.03:S.vol>=100?0.04:0.05}
 function unitOf(g){const f=(COLS[g.col]&&COLS[g.col].floor)||5;return f>=200?10:3*(f<=10?1:f<=50?1.4:2)}
-/* Крупные подарки (флор >= 200, напр. Plush Pepe, Durov's Cap): прибыль с перепродажи ограничена 8-22 GRAM */
+/* Крупные подарки (флор >= 200, напр. Plush Pepe, Durov's Cap): прибыль с перепродажи ограничена 8-22 GRAM; за реально выгодную покупку (сильно ниже оценки) потолок выше: +10% от выгоды, до +80 */
 function isBig(g){return !!g&&!g.base&&!g.gr&&!(g.ncap>0)&&g.bought>0&&fair(g)>=200}
-function bigLim(g){return 8+(hash(String(g.id))%15)}
+function bigLim(g){const bar=Math.max(0,fair(g)*(1-feeG(g))-g.bought);return 8+(hash(String(g.id))%15)+Math.min(80,bar*.1)}
 function bigGross(g){return +((g.bought+bigLim(g))/(1-feeG(g))).toFixed(2)}
 function instGross(g){const x=fair(g)*.9;return isBig(g)?Math.min(x,bigGross(g)):x}
 function ratioOf(g,price){const f=fair(g);if(g.ncap>0)return 1+.2*(price-f)/unitOf(g);let r=price/f;if(isBig(g)&&price*(1-feeG(g))-g.bought>bigLim(g))r=Math.max(r,2);return r}
