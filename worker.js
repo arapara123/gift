@@ -420,7 +420,12 @@ async function cron(env) {
     d.offers = (Array.isArray(d.offers) ? d.offers : []).filter(o => o && o.exp > now);
     const cand = d.inv.filter(g => g && !g.base && g.fv > 0 && !d.offers.some(o => o.gid === g.id));
     if (cand.length && d.offers.length < 4 && Math.random() < 0.12 * Math.min(4, mins / 5)) {
-      const g = pick(cand), bot = pick(BOTS), price = +(num(g.fv, 0, 1e7) * (0.84 + Math.random() * 0.16)).toFixed(2);
+      const g = pick(cand), bot = pick(BOTS);
+      let price = +(num(g.fv, 0, 1e7) * (0.84 + Math.random() * 0.16)).toFixed(2);
+      if (g.fv >= 200 && !g.gr && !(g.ncap > 0) && g.bought > 0) {
+        const fee = (+d.vol || 0) >= 500 ? 0.03 : (+d.vol || 0) >= 100 ? 0.04 : 0.05;
+        price = Math.min(price, +((+g.bought + 8 + Math.random() * 14) / (1 - fee)).toFixed(2));
+      }
       d.offers.unshift({ oid: now + Math.floor(Math.random() * 999), gid: g.id, bot, price, exp: now + 3600e3 });
       msgs.push('Новый оффер: ' + bot + ' предлагает ' + f2(price) + ' GRAM за ' + g.col + ' #' + g.serial + '. Оффер действует час.');
       away.push('Новый оффер на ' + g.col + ' #' + g.serial);

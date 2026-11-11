@@ -807,7 +807,12 @@ function setHTML(el,h){if(el&&el._h!==h){el._h=h;el.innerHTML=h}}
 function premium(mille){return 1+0.42*Math.log10(30/Math.max(mille,0.5))}
 function feeRate(){return S.vol>=500?0.03:S.vol>=100?0.04:0.05}
 function unitOf(g){const f=(COLS[g.col]&&COLS[g.col].floor)||5;return f>=200?10:3*(f<=10?1:f<=50?1.4:2)}
-function ratioOf(g,price){const f=fair(g);return g.ncap>0?1+.2*(price-f)/unitOf(g):price/f}
+/* Крупные подарки (флор >= 200, напр. Plush Pepe, Durov's Cap): прибыль с перепродажи ограничена 8-22 GRAM */
+function isBig(g){return !!g&&!g.base&&!g.gr&&!(g.ncap>0)&&g.bought>0&&fair(g)>=200}
+function bigLim(g){return 8+(hash(String(g.id))%15)}
+function bigGross(g){return +((g.bought+bigLim(g))/(1-feeG(g))).toFixed(2)}
+function instGross(g){const x=fair(g)*.9;return isBig(g)?Math.min(x,bigGross(g)):x}
+function ratioOf(g,price){const f=fair(g);if(g.ncap>0)return 1+.2*(price-f)/unitOf(g);let r=price/f;if(isBig(g)&&price*(1-feeG(g))-g.bought>bigLim(g))r=Math.max(r,2);return r}
 function maxPrice(g){return +(fair(g)+3*unitOf(g)).toFixed(2)}
 function feeG(g){return g&&g.ncap>0?0:feeRate()}
 function tierName(){return S.vol>=500?'VIP 3 · комиссия 3%':S.vol>=100?'VIP 2 · комиссия 4%':'VIP 1 · комиссия 5%'}
@@ -1259,7 +1264,7 @@ function listGift(id){
   sfx.click();closeModal();toast(`${g.col} #${g.serial} выставлен за ${f2(g.price)} GRAM`,'ok');refresh();
 }
 function unlist(id){const g=S.inv.find(x=>x.id===id);if(!g)return;g.listed=false;S.market=S.market.filter(x=>x.id!==id);closeModal();toast('Снято с продажи');refresh()}
-function instantSell(id){const g=S.inv.find(x=>x.id===id);if(!g)return;completeSale(g,+(fair(g)*.9*(1-feeG(g))).toFixed(2),fair(g)*.9,'Мгновенная продажа');closeModal()}
+function instantSell(id){const g=S.inv.find(x=>x.id===id);if(!g)return;{const gr=instGross(g);completeSale(g,+(gr*(1-feeG(g))).toFixed(2),gr,'Мгновенная продажа')};closeModal()}
 function completeSale(g,net,gross,who){
   const pl=+(net-g.bought).toFixed(2);
   S.inv=S.inv.filter(x=>x.id!==g.id);S.market=S.market.filter(x=>x.id!==g.id);S.offers=S.offers.filter(o=>o.gid!==g.id);
@@ -1310,7 +1315,7 @@ function tick(){
   const up=S.inv.filter(x=>!x.base);
   if(up.length&&S.offers.length<4&&Math.random()<.11){
     const g=pick(up);if(!S.offers.some(o=>o.gid===g.id)){
-      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b,price:+(fair(g)*(Math.random()<.06&&!(g.ncap>0)?rnd(1.12,1.55):rnd(.84,1))).toFixed(2),exp:Date.now()+120000});sfx.offer();haptic('medium');toast(`Новый оффер на ${g.col} #${g.serial}`)}
+      const b=pick(BOTS);S.offers.unshift({oid:Date.now()+Math.floor(Math.random()*999),gid:g.id,bot:b,price:(()=>{let p=+(fair(g)*(Math.random()<.06&&!(g.ncap>0)?rnd(1.12,1.55):rnd(.84,1))).toFixed(2);return isBig(g)?Math.min(p,bigGross(g)):p})(),exp:Date.now()+120000});sfx.offer();haptic('medium');toast(`Новый оффер на ${g.col} #${g.serial}`)}
   }
   S.offers=S.offers.filter(o=>o.exp>Date.now()&&S.inv.some(g=>g.id===o.gid));
   const others=S.market.filter(x=>!x.mine);
@@ -1564,7 +1569,7 @@ function openGift(id,just,keep){
       </div>
     </div>
     <div class="row">
-      ${g.listed?`<button class="btn red big" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="btn ghost big" style="flex:1" onclick="instantSell(${g.id})">Продать за ${f2(f*.9*(1-feeG(g)))}</button>`}
+      ${g.listed?`<button class="btn red big" style="flex:1" onclick="unlist(${g.id})">Снять</button>`:`<button class="btn ghost big" style="flex:1" onclick="instantSell(${g.id})">Продать за ${f2(instGross(g)*(1-feeG(g)))}</button>`}
       <button class="btn big" style="flex:1.2" onclick="listGift(${g.id})">${g.listed?'Изменить цену':'Выставить'}</button>
     </div>
     <button class="btn ghost" style="margin-top:8px;height:44px" onclick="openTransfer(${g.id})">Отправить</button>`;
