@@ -41,8 +41,6 @@ async function init(db) {
   await db.exec('CREATE TABLE IF NOT EXISTS admin_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, admin TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL, detail TEXT NOT NULL)');
   await db.exec('CREATE TABLE IF NOT EXISTS tglink (user_id INTEGER PRIMARY KEY, tg_id INTEGER NOT NULL UNIQUE, ts INTEGER NOT NULL)');
   await db.exec('CREATE TABLE IF NOT EXISTS cronat (user_id INTEGER PRIMARY KEY, at INTEGER NOT NULL)');
-  await db.exec('CREATE TABLE IF NOT EXISTS listings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, col TEXT NOT NULL, serial INTEGER NOT NULL, price REAL NOT NULL, gid INTEGER NOT NULL DEFAULT 0, vcap REAL NOT NULL DEFAULT 0, vmul REAL NOT NULL DEFAULT 0, ts INTEGER NOT NULL, UNIQUE (user_id, col, serial))');
-  await db.exec('CREATE INDEX IF NOT EXISTS listings_ts ON listings (ts)');
   ready = true;
 }
 
@@ -64,9 +62,8 @@ async function tgSend(env, chatId, text) {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, reply_markup: link ? { inline_keyboard: [[{ text: 'Открыть Portals Market', url: link }]] } : undefined })
     });
-    if (!r.ok) console.error('tgSend failed', r.status, await r.text().catch(() => ''));
     return r.ok;
-  } catch (e) { console.error('tgSend error', e && e.message); return false; }
+  } catch (e) { return false; }
 }
 async function checkInit(initData, token) {
   if (!token || typeof initData !== 'string' || initData.length > 4096) return null;
@@ -232,15 +229,6 @@ async function save(req, env, user) {
   ).bind(user.id, JSON.stringify(d), profile, now)];
   for (const r of gr) stmts.push(env.DB.prepare('UPDATE grants SET applied = 1 WHERE id = ? AND user_id = ?').bind(r.id, user.id));
   await env.DB.batch(stmts);
-  // лоты, которых больше нет в списке выставленных подарков игрока, снимаем (с запасом 20 с на гонки)
-  try {
-    const mine = await env.DB.prepare('SELECT id, col, serial, ts FROM listings WHERE user_id = ?').bind(user.id).all();
-    if ((mine.results || []).length) {
-      const listed = new Set(d.inv.filter(g => g && !g.base && g.listed).map(g => g.col + '#' + Number(g.serial)));
-      const dead = mine.results.filter(r => now - r.ts > 20000 && !listed.has(r.col + '#' + r.serial)).map(r => r.id);
-      if (dead.length) await env.DB.prepare('DELETE FROM listings WHERE user_id = ? AND id IN (' + dead.map(() => '?').join(',') + ')').bind(user.id, ...dead).run();
-    }
-  } catch (e) {}
   return json({ ok: true, t: now });
 }
 
@@ -259,9 +247,6 @@ async function transfer(req, env, u) {
   const i = d && Array.isArray(d.inv) ? d.inv.findIndex(g => g && !g.base && g.col === col && Number(g.serial) === serial) : -1;
   if (i < 0) return err('Подарок не найден в сохранении. Подождите пару секунд и повторите');
   const gid = d.inv[i].id, vcap = num(d.inv[i].vcap, 0, 1e7), vmul = num(d.inv[i].vmul, 0, 1000);
-  // если подарок выставлен игрокам — сначала снимаем лот; если его уже купили, отправка отменяется
-  const lst = await takeListing(env, u.id, col, serial);
-  if (lst === 'sold') return err('Подарок уже продан');
   d.inv.splice(i, 1);
   d.market = (d.market || []).filter(g => !(g && g.id === gid));
   d.pinned = (d.pinned || []).filter(x => x !== gid);
@@ -403,25 +388,20 @@ async function cron(env) {
   const { results } = await env.DB.prepare(
     'SELECT s.user_id, s.data, s.profile, s.updated, t.tg_id, c.at FROM saves s LEFT JOIN tglink t ON t.user_id = s.user_id LEFT JOIN cronat c ON c.user_id = s.user_id ' +
     'WHERE s.updated < ? AND s.updated > ? AND NOT EXISTS (SELECT 1 FROM bans b WHERE b.user_id = s.user_id) ORDER BY s.updated DESC LIMIT 300'
-  ).bind(now - 90e3, now - 14 * 864e5).all();
+  ).bind(now - 4 * 60e3, now - 14 * 864e5).all();
   const marks = [];
   for (const row of results) {
     const d = parse(row.data);
     if (!d || !Array.isArray(d.inv) || !Number.isFinite(d.ton)) continue;
     const last = Math.max(row.at || 0, row.updated || 0), mins = Math.min(120, (now - last) / 60e3);
     marks.push(env.DB.prepare('INSERT OR REPLACE INTO cronat (user_id, at) VALUES (?, ?)').bind(row.user_id, now));
-    if (mins < 0.5) continue;
+    if (mins < 1) continue;
     const msgs = [], away = [];
     let changed = false;
     for (const g of [...d.inv]) {
       if (!g || g.base || !g.listed || !(g.price > 0)) continue;
       const ch = num(g.ch, 0, 0.5);
       if (!ch || Math.random() >= 1 - Math.pow(1 - ch, 7 * mins)) continue;
-      // если подарок выставлен игрокам, продаём боту только когда лот удалось забрать (иначе его уже купил игрок)
-      if (g.sl) {
-        const tk = await env.DB.prepare('DELETE FROM listings WHERE user_id = ? AND col = ? AND serial = ?').bind(row.user_id, g.col, int(g.serial, 0, 1000000)).run();
-        if (!(tk.meta && tk.meta.changes > 0)) continue;
-      }
       const vol = +d.vol || 0, fee = g.ncap > 0 ? 0 : vol >= 500 ? 0.03 : vol >= 100 ? 0.04 : 0.05;
       const net = +(g.price * (1 - fee)).toFixed(2), pl = +(net - (+g.bought || 0)).toFixed(2);
       d.inv = d.inv.filter(x => x !== g);
@@ -463,104 +443,6 @@ async function cron(env) {
   for (let i = 0; i < marks.length; i += 50) await env.DB.batch(marks.slice(i, i + 50));
 }
 
-/* ───────── Общий рынок игроков ─────────
-   Это отдельный слой поверх симуляции: боты, флоры, шансы и цены считаются на клиенте как раньше.
-   Сервер отвечает только за то, чтобы один подарок нельзя было продать дважды. */
-const SALE_PENDING = "SELECT 1 AS x FROM grants WHERE user_id = ? AND kind = 'sale' AND applied = 0 AND json_extract(payload, '$.col') = ? AND json_extract(payload, '$.serial') = ?";
-
-// Забрать лот с рынка. 'taken' — лот был и удалён; 'sold' — его уже купил игрок (награда ждёт продавца); 'none' — лота не было.
-async function takeListing(env, uid, col, serial) {
-  const r = await env.DB.prepare('DELETE FROM listings WHERE user_id = ? AND col = ? AND serial = ?').bind(uid, col, serial).run();
-  if (r.meta && r.meta.changes > 0) return 'taken';
-  const s = await env.DB.prepare(SALE_PENDING).bind(uid, col, serial).first();
-  return s ? 'sold' : 'none';
-}
-
-async function savedGift(env, uid, col, serial) {
-  const row = await env.DB.prepare('SELECT data FROM saves WHERE user_id = ?').bind(uid).first();
-  const d = row && parse(row.data);
-  if (!d || !Array.isArray(d.inv)) return null;
-  const g = d.inv.find(x => x && !x.base && x.col === col && Number(x.serial) === serial);
-  return g ? { g, d } : null;
-}
-
-async function marketList(req, env, u) {
-  let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
-  const col = String(b.col || '');
-  if (!COL_RE.test(col)) return err('Неверная коллекция');
-  const serial = int(b.serial, 1, 1000000);
-  const price = Math.round(num(b.price, 0, 1e6) * 100) / 100;
-  if (!(price >= 0.5)) return err('Неверная цена');
-  if (await limited(env.DB, 'mkl:' + u.id, 400, 3600000)) return err('Слишком часто. Попробуйте позже', 429);
-  if (await env.DB.prepare(SALE_PENDING).bind(u.id, col, serial).first()) return err('Подарок уже продан', 409);
-  const sg = await savedGift(env, u.id, col, serial);
-  if (!sg) return err('Подарок не найден в сохранении. Подождите пару секунд и повторите', 409);
-  const ex = await env.DB.prepare('SELECT id FROM listings WHERE user_id = ? AND col = ? AND serial = ?').bind(u.id, col, serial).first();
-  if (!ex) {
-    const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM listings WHERE user_id = ?').bind(u.id).first();
-    if (c && c.n >= 100) return err('Не больше 100 лотов одновременно', 409);
-  }
-  const vcap = num(sg.g.vcap, 0, 1e7), vmul = num(sg.g.vmul, 0, 1000);
-  await env.DB.prepare(
-    'INSERT INTO listings (user_id, col, serial, price, gid, vcap, vmul, ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ' +
-    'ON CONFLICT(user_id, col, serial) DO UPDATE SET price = excluded.price, gid = excluded.gid, vcap = excluded.vcap, vmul = excluded.vmul'
-  ).bind(u.id, col, serial, price, int(b.gid, 0, 1e9), vcap, vmul, Date.now()).run();
-  return json({ ok: true });
-}
-
-// unlist и claim: оба забирают лот, claim используется перед продажей боту/офферу
-async function marketTake(req, env, u) {
-  let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
-  const col = String(b.col || '');
-  if (!COL_RE.test(col)) return err('Неверная коллекция');
-  const st = await takeListing(env, u.id, col, int(b.serial, 1, 1000000));
-  return json({ ok: st !== 'sold', gone: st === 'sold' });
-}
-
-async function marketBuy(req, env, u) {
-  let b; try { b = await readJson(req); } catch (e) { return err('Неверный запрос'); }
-  const id = int(b.id, 0, 1e12);
-  if (await limited(env.DB, 'mkb:' + u.id, 150, 600000)) return err('Слишком часто. Попробуйте позже', 429);
-  const row = await env.DB.prepare(
-    'SELECT l.id, l.user_id, l.col, l.serial, l.price, l.vcap, l.vmul, s.username AS seller, (b.user_id IS NOT NULL) AS banned ' +
-    'FROM listings l JOIN users s ON s.id = l.user_id LEFT JOIN bans b ON b.user_id = l.user_id WHERE l.id = ?'
-  ).bind(id).first();
-  if (!row) return err('Лот уже продан или снят', 409);
-  if (row.user_id === u.id) return err('Это ваш лот', 409);
-  if (row.banned) { await env.DB.prepare('DELETE FROM listings WHERE id = ?').bind(row.id).run(); return err('Лот недоступен', 409); }
-  if (Math.abs(row.price - Number(b.price)) > 0.001) return err('Цена изменилась: теперь ' + f2(row.price) + ' GRAM', 409);
-  // лот должен реально существовать в сохранении продавца (защита от дублей и «призрачных» лотов)
-  const sg = await savedGift(env, row.user_id, row.col, row.serial);
-  if (!sg) { await env.DB.prepare('DELETE FROM listings WHERE id = ?').bind(row.id).run(); return err('Лот недоступен', 409); }
-
-  const now = Date.now();
-  const gp = JSON.stringify({ col: row.col, serial: row.serial, from: row.seller, vcap: row.vcap, vmul: row.vmul, paid: row.price, mk: 1 });
-  const sp = JSON.stringify({ col: row.col, serial: row.serial, price: row.price, buyer: u.username });
-  const cond = ' WHERE EXISTS (SELECT 1 FROM listings WHERE id = ? AND price = ?)';
-  const res = await env.DB.batch([
-    env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) SELECT ?, ?, ?, ?' + cond).bind(u.id, 'gift', gp, now, row.id, row.price),
-    env.DB.prepare('INSERT INTO grants (user_id, kind, payload, ts) SELECT ?, ?, ?, ?' + cond).bind(row.user_id, 'sale', sp, now, row.id, row.price),
-    env.DB.prepare('DELETE FROM listings WHERE id = ? AND price = ?').bind(row.id, row.price)
-  ]);
-  if (!(res[2].meta && res[2].meta.changes > 0)) return err('Лот уже продан или снят', 409);
-
-  try {
-    if (sg.d.notif !== false) {
-      const t = await env.DB.prepare('SELECT tg_id FROM tglink WHERE user_id = ?').bind(row.user_id).first();
-      if (t) await tgSend(env, t.tg_id, 'Твой ' + row.col + ' #' + row.serial + ' купил @' + u.username + ' за ' + f2(row.price) + ' GRAM');
-    }
-  } catch (e) {}
-  return json({ ok: true, grants: await pendingGrants(env, u.id) });
-}
-
-async function marketList_(env) {
-  const { results } = await env.DB.prepare(
-    'SELECT l.id, u.username AS seller, l.col, l.serial, l.price, l.vcap, l.vmul, l.ts FROM listings l JOIN users u ON u.id = l.user_id ' +
-    'WHERE NOT EXISTS (SELECT 1 FROM bans b WHERE b.user_id = l.user_id) ORDER BY l.ts DESC LIMIT 600'
-  ).all();
-  return json({ items: results || [] });
-}
-
 async function route(req, env, url) {
   const path = url.pathname.replace(/\/+$/, ''), m = req.method;
 
@@ -594,19 +476,6 @@ async function route(req, env, url) {
   if (path === '/api/save' && m === 'PUT') {
     const a = await authed(req, env); if (a.res) return a.res;
     return save(req, env, a.u);
-  }
-  if (path === '/api/market' && m === 'GET') return marketList_(env);
-  if (path === '/api/market/list' && m === 'POST') {
-    const a = await authed(req, env); if (a.res) return a.res;
-    return marketList(req, env, a.u);
-  }
-  if ((path === '/api/market/unlist' || path === '/api/market/claim') && m === 'POST') {
-    const a = await authed(req, env); if (a.res) return a.res;
-    return marketTake(req, env, a.u);
-  }
-  if (path === '/api/market/buy' && m === 'POST') {
-    const a = await authed(req, env); if (a.res) return a.res;
-    return marketBuy(req, env, a.u);
   }
   if (path === '/api/transfer' && m === 'POST') {
     const a = await authed(req, env); if (a.res) return a.res;
@@ -709,6 +578,6 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
-    if (env.DB) ctx.waitUntil(cron(env).catch(e => console.error('cron failed', e && e.stack || e)));
+    if (env.DB) ctx.waitUntil(cron(env).catch(() => {}));
   }
 };

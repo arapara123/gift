@@ -765,8 +765,6 @@ const UI={tab:'market',cat:'all',cols:new Set(),q:'',iq:'',sort:'PRICE_ASC',invF
   g3:(function(){try{return localStorage.getItem('pr_g3')==='1'}catch(e){return false}})(),
   render:(function(){try{return localStorage.getItem('pr_render')||'CDN'}catch(e){return'CDN'}})()};
 const TRK={t:0,c:0};
-UI.pm=[];UI.src='ALL';
-function allMarket(){return UI.pm&&UI.pm.length?S.market.concat(UI.pm):S.market}
 function save(){try{const o=Object.assign({},S);o.market=S.market.filter(g=>g.mine);localStorage.setItem(KEY,JSON.stringify(o))}catch(e){}cloudSoon()}
 function load(){try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);return true}}catch(e){}return false}
 function patchState(){
@@ -782,7 +780,7 @@ function patchState(){
     seen.add(g.col+'#'+g.serial)})}
   [...S.market,...S.inv].forEach(g=>{
     if(g.base)return;
-    g._rq=0;g._ls=0;g._cl=0;g._lf=0;if(g.bsync!==3){g.sm=null;const keep=g.bsync===2||g.bsync===1;if(!keep){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}g.bsync=keep?1:0}
+    g._rq=0;if(g.bsync!==3){g.sm=null;const keep=g.bsync===2||g.bsync===1;if(!keep){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}g.bsync=keep?1:0}
     if(g.seller&&g.seller.startsWith('@whale_ton'))g.seller='@whale_gram';
   });
   if(stale){S.market=S.market.filter(g=>g.mine);S.mv=7;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
@@ -1160,7 +1158,7 @@ function bdDirty(g){
     saveSoon();
   },250);
 }
-function repriceAfter(g,old){const nw=fair(g);if(!g.mine&&!g.foreign&&!g.pl&&g.price>0&&old>0&&!g.fixv)g.price=+Math.max(.5,g.price*nw/old).toFixed(2)}
+function repriceAfter(g,old){const nw=fair(g);if(!g.mine&&!g.foreign&&g.price>0&&old>0&&!g.fixv)g.price=+Math.max(.5,g.price*nw/old).toFixed(2)}
 function syncBd(g){
   if(!g||g.base||(g.bsync===3&&g.sm)||UI.render!=='CDN'||!g.serial)return;
   if(!IMG_URL[bdKey(g)]){IMG_WAIT[bdKey(g)]=g;return}
@@ -1237,12 +1235,8 @@ function refillMarket(){
   COL_NAMES.forEach(c=>{for(let i=cnt[c]||0,n=Math.max(1,Math.round(baseTarget(c)));i<n;i++){const g=mkGift({col:c});g.price=marketPrice(g);S.market.push(g)}});
 }
 
-function buy(id,shown){
-  const g=allMarket().find(x=>x.id===id);if(!g||g.mine)return;
-  if(g.pl){
-    if(shown!=null&&Math.abs(shown-g.price)>0.001){toast(`Цена изменилась: теперь ${f2(g.price)} GRAM`,'bad');refresh();return}
-    buyPl(g);return;
-  }
+function buy(id){
+  const g=S.market.find(x=>x.id===id);if(!g||g.mine)return;
   if(S.ton<g.price){toast(`Не хватает ${f2(g.price-S.ton)} GRAM`,'bad');return}
   S.ton=+(S.ton-g.price).toFixed(2);S.vol=+(S.vol+g.price).toFixed(2);S.cashback=+(S.cashback+g.price*.015).toFixed(2);S.spent+=g.price;
   S.market=S.market.filter(x=>x.id!==id);
@@ -1260,115 +1254,8 @@ function listGift(id){
   g.price=+(g.ncap>0?Math.min(v,maxPrice(g)):v).toFixed(2);g.listed=true;if(!S.market.find(x=>x.id===id))S.market.unshift(g);
   if(!was)evHit('list');
   sfx.click();closeModal();toast(`${g.col} #${g.serial} выставлен за ${f2(g.price)} GRAM`,'ok');refresh();
-  pushListing(g);
 }
-async function unlist(id){
-  const g=S.inv.find(x=>x.id===id);if(!g)return;
-  if(TOKEN&&g.sl){
-    try{
-      const r=await api('/market/unlist',{method:'POST',body:{col:g.col,serial:g.serial}});
-      if(r.gone){closeModal();toast('Лот уже купил игрок — GRAM придут сейчас','ok');pullGrants();return}
-    }catch(e){
-      if(e.status===401){logoutLocal(true);return}
-      if(e.status&&e.status<500){toast(escH(e.message||'Ошибка'),'bad');return}
-    }
-  }
-  g.listed=false;g.sl=0;S.market=S.market.filter(x=>x.id!==id);closeModal();toast('Снято с продажи');refresh();
-}
-
-/* ───── Общий рынок игроков (отдельный слой: боты, флоры и шансы не затрагиваются) ───── */
-let _fm=0;
-async function fetchMarket(){
-  if(_fm||document.hidden||(UI._pmOk&&UI.tab!=='market'))return;
-  _fm=1;
-  try{
-    const r=await api('/market'),old=new Map((UI.pm||[]).map(g=>[g.lid,g])),next=[];
-    for(const it of r.items||[]){
-      if(!COLS[it.col]||it.seller===ACC)continue;
-      let g=old.get(it.id);
-      if(g&&g.serial===it.serial&&g.col===it.col){g.fl=it.price<g.price?-1:it.price>g.price?1:0;g.price=it.price}
-      else{
-        const t=traits(it.col,it.serial);
-        g={id:1e9+it.id,lid:it.id,col:it.col,serial:it.serial,mi:t.mi,bi:t.bi,pi:t.pi,price:it.price,bought:0,listed:true,mine:false,pl:1,seller:'@'+it.seller,at:it.ts,nw:0,fl:0,bsync:0};
-        if(it.vcap>0){g.vcap=it.vcap;g.ncap=it.vcap;g.fixv=it.vcap}
-        if(it.vmul>0)g.vmul=it.vmul;
-      }
-      next.push(g);
-    }
-    UI.pm=next;UI._pmOk=1;
-    if(UI.tab==='market'){UI.soft=true;try{renderMarket()}finally{UI.soft=false}}
-  }catch(e){}
-  _fm=0;
-}
-async function buyPl(g){
-  if(UI.buyBusy)return;
-  if(!TOKEN){toast('Войдите в аккаунт, чтобы покупать у игроков','bad');showAuth('login');return}
-  const price=g.price;
-  if(S.ton<price){toast(`Не хватает ${f2(price-S.ton)} GRAM`,'bad');return}
-  UI.buyBusy=true;
-  S.ton=+(S.ton-price).toFixed(2);updTop();
-  let r;
-  try{r=await api('/market/buy',{method:'POST',body:{id:g.lid,price}})}
-  catch(e){
-    UI.buyBusy=false;
-    if(!e.status||e.status>=500){
-      // неизвестно, дошла ли покупка до сервера: GRAM не возвращаем сразу, чтобы не получить дубль; решит pullGrants
-      S.pbuy={col:g.col,serial:g.serial,price,t:Date.now()};save();
-      toast('Нет связи — проверяем покупку','bad');setTimeout(pullGrants,2500);return;
-    }
-    S.ton=+(S.ton+price).toFixed(2);updTop();
-    if(e.status===401){logoutLocal(true);return}
-    if(e.status===403){bannedOut(e.message);return}
-    toast(escH(e.message||'Ошибка'),'bad');
-    if(e.status===409){UI._pmOk=0;fetchMarket()}
-    return;
-  }
-  UI.buyBusy=false;
-  S.vol=+(S.vol+price).toFixed(2);S.cashback=+(S.cashback+price*.015).toFixed(2);S.spent+=price;
-  applyGrants(r.grants||[]);
-  const it=S.inv.find(x=>!x.base&&x.col===g.col&&x.serial===g.serial);
-  UI.pm=(UI.pm||[]).filter(x=>x!==g);
-  sfx.buy();haptic('success');confetti(40);log(`Покупка ${g.col} #${g.serial}`,'-'+f2(price),'rose');
-  feed(`Вы купили <b>${g.col} #${g.serial}</b> у ${escH(g.seller)} за <b>${f2(price)}</b>`);
-  toast(`Куплено: ${g.col} #${g.serial}`,'ok');
-  evHit('buy');if(it&&NEON_BD.has(bdName(it)))evHit('neon');
-  closeModal();refresh();if(it)openGift(it.id,true);
-}
-async function pushListing(g){
-  if(!TOKEN||g.base||g._ls)return;
-  g._ls=1;const pr=g.price;
-  try{
-    if(CLOUD_READY)await pushCloud(true);
-    await api('/market/list',{method:'POST',body:{col:g.col,serial:g.serial,price:pr,gid:g.id}});
-    g.sl=pr;g._lf=0;save();
-  }catch(e){
-    if(e.status===401)logoutLocal(true);
-    else if(e.status===403)bannedOut(e.message);
-    else{
-      g._lf=Date.now()+(/сохранени/.test(e.message||'')?8000:60000);
-      if(e.status===409&&/продан/.test(e.message||''))pullGrants();
-    }
-  }
-  g._ls=0;
-}
-function syncListings(){
-  if(!TOKEN)return;
-  const now=Date.now();
-  S.inv.forEach(g=>{if(g.base||!g.listed||g._ls||g._cl||g.sl===g.price||g._lf>now)return;pushListing(g)});
-}
-// продажа боту/офферу для лота, выставленного игрокам: сначала забираем лот на сервере (иначе его мог купить игрок)
-async function botSell(g){
-  g._cl=1;
-  try{
-    const r=await api('/market/claim',{method:'POST',body:{col:g.col,serial:g.serial}});
-    if(r.gone){pullGrants();return}
-    g.sl=0;
-    if(!S.inv.includes(g)||!g.listed)return;
-    const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);
-    completeSale(g,net,g.price,pick(BOTS));
-  }catch(e){if(e.status===401)logoutLocal(true)}
-  finally{g._cl=0}
-}
+function unlist(id){const g=S.inv.find(x=>x.id===id);if(!g)return;g.listed=false;S.market=S.market.filter(x=>x.id!==id);closeModal();toast('Снято с продажи');refresh()}
 function instantSell(id){const g=S.inv.find(x=>x.id===id);if(!g)return;completeSale(g,+(fair(g)*.9*(1-feeG(g))).toFixed(2),fair(g)*.9,'Мгновенная продажа');closeModal()}
 function completeSale(g,net,gross,who){
   const pl=+(net-g.bought).toFixed(2);
@@ -1386,19 +1273,9 @@ function claimCashback(){
   if(S.cashback<.01){toast('Кэшбэк копится с покупок');return}
   const a=S.cashback;S.ton=+(S.ton+a).toFixed(2);S.cashback=0;sfx.sale();log('Кэшбэк','+'+f2(a),'emerald');toast(`+${f2(a)} GRAM кэшбэка`,'ok');refresh();
 }
-async function acceptOffer(oid){
+function acceptOffer(oid){
   const o=S.offers.find(x=>x.oid===oid);if(!o)return;const g=S.inv.find(x=>x.id===o.gid);
   if(!g){S.offers=S.offers.filter(x=>x.oid!==oid);refresh();return}
-  if(g.sl&&TOKEN){
-    if(g._cl)return;g._cl=1;
-    try{
-      const r=await api('/market/claim',{method:'POST',body:{col:g.col,serial:g.serial}});
-      if(r.gone){toast('Подарок уже купил игрок','bad');pullGrants();return}
-      g.sl=0;
-    }catch(e){toast(escH(e.message||'Нет соединения'),'bad');return}
-    finally{g._cl=0}
-    if(!S.inv.includes(g))return;
-  }
   evHit('offer');completeSale(g,+(o.price*(1-feeG(g))).toFixed(2),o.price,o.bot);
 }
 function declineOffer(oid){S.offers=S.offers.filter(x=>x.oid!==oid);sfx.click();refresh()}
@@ -1417,7 +1294,7 @@ function tick(){
   const oth=S.market.filter(x=>!x.mine);
   for(let i=0;i<8&&oth.length;i++){const g=pick(oth),old=g.price,tg=botReprice(g);g.price=+Math.max(.5,old+(tg-old)*rnd(.3,.85)).toFixed(2);g.fl=g.price<old?-1:g.price>old?1:0}
   for(const g of S.inv.filter(x=>x.listed)){
-    if(Math.random()<chanceFor(ratioOf(g,g.price))){if(g.sl&&TOKEN){if(!g._cl)botSell(g);break}const b=pick(BOTS);const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);completeSale(g,net,g.price,b);break}
+    if(Math.random()<chanceFor(ratioOf(g,g.price))){const b=pick(BOTS);const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);completeSale(g,net,g.price,b);break}
   }
   const up=S.inv.filter(x=>!x.base);
   if(up.length&&S.offers.length<4&&Math.random()<.11){
@@ -1464,9 +1341,8 @@ function updTop(){
 
 function visibleBase(){
   const q=UI.q.toLowerCase().trim().replace('#','');
-  return allMarket().filter(g=>{
+  return S.market.filter(g=>{
     if(UI.cols.size&&!UI.cols.has(g.col))return false;
-    if(UI.src==='PL'&&!g.pl)return false;
     if(UI.bd!=='ALL'&&g.bi!==+UI.bd)return false;
     if(UI.tier!=='ALL'&&tierOf(g)!==UI.tier)return false;
     if(q&&!(g.col.toLowerCase().includes(q)||String(g.serial).includes(q)||bdName(g).toLowerCase().includes(q)))return false;
@@ -1493,7 +1369,7 @@ function openSort(){
   ${SORTS.map(s=>`<div class="lrow" onclick="UI.sort='${s[0]}';closeModal();renderMarket()"><b style="font-size:15px;font-weight:600">${s[1]}</b>${UI.sort===s[0]?'<span class="blue" style="font-weight:800">✓</span>':''}</div>`).join('')}</div>`;
   openModal();
 }
-function resetFilters(){UI.lim=60;UI.cols.clear();UI.tier='ALL';UI.bd='ALL';UI.src='ALL';UI.q='';UI.pq=null;$('q').value='';renderMarket()}
+function resetFilters(){UI.lim=60;UI.cols.clear();UI.tier='ALL';UI.bd='ALL';UI.q='';UI.pq=null;$('q').value='';renderMarket()}
 function toggleLayout(){UI.g3=!UI.g3;try{localStorage.setItem('pr_g3',UI.g3?'1':'0')}catch(e){}sfx.click();refresh()}
 function toggleTools(){$('mtools').classList.toggle('hidden');$('b-col').classList.toggle('col');sfx.click()}
 
@@ -1570,17 +1446,16 @@ function softOrder(el,all,lim){
 function giftCard(g,mode){
   if(g.base)return `<div class="card"><div class="art" style="background:#2e3540" onclick="openCraft(${g.id})"><span class="ini">${ini(g.col)}</span><span class="badge tl">Обычный</span></div><div class="ctitle">${g.col}</div><div class="cid">не улучшен</div><button class="btn purple" onclick="openCraft(${g.id})">Крафт</button></div>`;
   const si=serialInfo(g.serial,g.col);
-  let badge=g.mine&&g.listed&&mode!=='inv'?'<span class="badge g tl">Ваш лот</span>':si.m>=1.5?`<span class="badge">${si.tags[0]||'Редкий'}</span>`:'';
-  if(g.pl)badge+='<span class="badge tl" style="background:rgba(47,140,255,.9)">Игрок</span>';
+  const badge=g.mine&&g.listed&&mode!=='inv'?'<span class="badge g tl">Ваш лот</span>':si.m>=1.5?`<span class="badge">${si.tags[0]||'Редкий'}</span>`:'';
   let btn;
   if(mode==='inv')btn=g.listed?`<button class="btn green" onclick="openGift(${g.id})">${f2(g.price)} ${GEM}</button>`:`<button class="btn" onclick="openGift(${g.id})">Продать</button>`;
-  else btn=`<div class="crow"><button class="btn" onclick="openGift(${g.id})">${f2(g.price)} ${GEM}</button><button class="cart" aria-label="Купить" onclick="buy(${g.id},${g.price})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2.5l2.2 10.5a1.5 1.5 0 001.5 1.2h7.9a1.5 1.5 0 001.5-1.1L20.5 8H6.3"/><circle cx="9.5" cy="20" r="1.3" fill="currentColor"/><circle cx="17" cy="20" r="1.3" fill="currentColor"/></svg></button></div>`;
+  else btn=`<div class="crow"><button class="btn" onclick="openGift(${g.id})">${f2(g.price)} ${GEM}</button><button class="cart" aria-label="Купить" onclick="buy(${g.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2.5l2.2 10.5a1.5 1.5 0 001.5 1.2h7.9a1.5 1.5 0 001.5-1.1L20.5 8H6.3"/><circle cx="9.5" cy="20" r="1.3" fill="currentColor"/><circle cx="17" cy="20" r="1.3" fill="currentColor"/></svg></button></div>`;
   return `<div class="card" data-p="${g.listed||!g.mine?g.price:''}"><div class="art" style="background:${bg(g)}" onclick="openGift(${g.id})">${artInner(g)}<span class="info"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 10h2v7h-2zm0-4h2v2h-2z"/></svg></span>${badge}</div><div class="ctitle">${g.col}</div><div class="cid">#${nf(g.serial)}${mode==='inv'?' · ≈ '+f2(fair(g)):''}</div>${btn}</div>`;
 }
 function pickCol(c){UI.cols=new Set([c]);UI.cat='all';UI.lim=60;sfx.click();$('v-market').scrollTop=0;renderMarket()}
 function renderCols(){
   const cnt={},fl={};
-  allMarket().forEach(g=>{if(g.mine)return;cnt[g.col]=(cnt[g.col]||0)+1;if(!fl[g.col]||g.price<fl[g.col].price)fl[g.col]=g});
+  S.market.forEach(g=>{if(g.mine)return;cnt[g.col]=(cnt[g.col]||0)+1;if(!fl[g.col]||g.price<fl[g.col].price)fl[g.col]=g});
   const q=UI.q.trim().toLowerCase();
   const l=COL_NAMES.filter(c=>!q||c.toLowerCase().includes(q)).sort((a,b)=>S.floors[b]-S.floors[a]);
   l.forEach(c=>{if(fl[c])syncBd(fl[c])});
@@ -1602,7 +1477,7 @@ function renderMarket(){
   $('mgrid').classList.toggle('hidden',cv);$('cgrid').classList.toggle('hidden',!cv);$('slider').classList.toggle('hidden',cv);
   document.querySelector('#mtools .frow').classList.toggle('hidden',cv);$('promo').classList.toggle('hidden',cv);
   if(cv){$('more').classList.add('hidden');renderCols();return}
-  const nF=(UI.tier!=='ALL')+(UI.bd!=='ALL')+(UI.cols.size?1:0)+(UI.src!=='ALL'?1:0);
+  const nF=(UI.tier!=='ALL')+(UI.bd!=='ALL')+(UI.cols.size?1:0);
   $('fcnt').textContent=nF;
   $('fp-coln').textContent=UI.cols.size;$('fp-col').classList.toggle('on',UI.cols.size>0);
   $('fp-bdn').textContent=UI.bd!=='ALL'?1:0;$('fp-bd').classList.toggle('on',UI.bd!=='ALL');
@@ -1622,9 +1497,7 @@ function plural(n,a,b,c){n=Math.abs(n)%100;const d=n%10;if(n>10&&n<20)return c;i
 function openFilters(){
   const tiers=[['ALL','Все'],['legendary','Легендарные'],['epic','Эпические'],['rare','Редкие'],['common','Обычные']];
   $('sheet').innerHTML=`<div class="sbody"><div class="shead"><b>Фильтры</b><button class="xb" onclick="closeModal()">${XIC}</button></div>
-  <div class="sec" style="margin-top:0">Источник</div>
-  <div class="pills"><button class="pill ${UI.src==='ALL'?'on':''}" onclick="UI.src='ALL';UI.lim=60;renderMarket();openFilters()">Все лоты</button><button class="pill ${UI.src==='PL'?'on':''}" onclick="UI.src='PL';UI.lim=60;renderMarket();openFilters()">Только игроки</button></div>
-  <div class="sec">Редкость модели</div>
+  <div class="sec" style="margin-top:0">Редкость модели</div>
   <div class="pills">${tiers.map(t=>`<button class="pill ${UI.tier===t[0]?'on':''}" onclick="UI.tier='${t[0]}';renderMarket();openFilters()">${t[1]}</button>`).join('')}</div>
   <div class="sec">Фон</div>
   <div class="pills"><button class="pill ${UI.bd==='ALL'?'on':''}" onclick="UI.bd='ALL';renderMarket();openFilters()">Все</button>${BACKDROPS.map((b,i)=>`<button class="pill ${UI.bd==i?'on':''}" onclick="UI.bd=${i};renderMarket();openFilters()"><i style="width:12px;height:12px;border-radius:50%;background:${b[1]};display:inline-block"></i>${b[0]}</button>`).join('')}</div>
@@ -1665,7 +1538,7 @@ function tgBack(on){try{const tg=window.Telegram&&Telegram.WebApp;if(!tg||!tg.in
 
 function openGift(id,just,keep){
   if(!keep)sfx.click();
-  const g=S.inv.find(x=>x.id===id)||S.market.find(x=>x.id===id)||(UI.pm||[]).find(x=>x.id===id)||(UI.fg||[]).find(x=>x.id===id);if(!g)return;
+  const g=S.inv.find(x=>x.id===id)||S.market.find(x=>x.id===id)||(UI.fg||[]).find(x=>x.id===id);if(!g)return;
   if(g.base){openCraft(g.id);return}
   const f=fair(g),C=COLS[g.col],worn=S.worn===g.id,pin=S.pinned.includes(g.id),si=serialInfo(g.serial,g.col),mt=matchInfo(g);
   UI.openId=g.id;const R=g.real||{};
@@ -1694,9 +1567,8 @@ function openGift(id,just,keep){
   }else if(g.foreign){
     action=`<div class="panel row sb"><div><div class="mut">Оценка</div><div class="big">${f2(f)} ${GEM}</div></div><div class="mut" style="text-align:right">Владелец<br><b style="color:#fff">${g.seller}</b></div></div><button class="btn ghost big" onclick="openUser('${g.owner}')">Назад к профилю</button>`;
   }else{
-    action=`<button class="btn big" onclick="buy(${g.id},${g.price})">Купить за ${f2(g.price)} ${GEM}</button>
-      <div class="mut" style="text-align:center;margin-top:8px">Баланс ${f2(S.ton)} GRAM · кэшбэк +${f2(g.price*.015)}</div>
-      ${g.pl?`<button class="btn ghost" style="margin-top:8px;height:44px" onclick="openUser('${escH(g.seller.slice(1))}')">Профиль продавца ${escH(g.seller)}</button>`:''}`;
+    action=`<button class="btn big" onclick="buy(${g.id})">Купить за ${f2(g.price)} ${GEM}</button>
+      <div class="mut" style="text-align:center;margin-top:8px">Баланс ${f2(S.ton)} GRAM · кэшбэк +${f2(g.price*.015)}</div>`;
   }
   const mName=R.model?R.model.v:MODELS[g.mi][0];
   const bdc=IMG_BD[bdKey(g)],bdI=(R.backdrop||!bdc)?g.bi:bdc.i;
@@ -2394,22 +2266,14 @@ function applyGrants(list){
     if(gr.kind==='reset-stats'){S.profit=0;S.flips=0;S.best=0;S.vol=0;S.spent=0;rst++;log('Статистика сброшена','0.00','rose')}
     else if(gr.kind==='ton'){const a=Number(gr.amount);if(!Number.isFinite(a)||!a)continue;S.ton=+Math.max(0,S.ton+a).toFixed(2);ton+=a;log('Начисление',(a>=0?'+':'')+f2(a),a>=0?'emerald':'rose')}
     else if(gr.kind==='stars'){const a=Math.floor(Number(gr.amount));if(!Number.isFinite(a)||!a)continue;S.stars=Math.max(0,(S.stars||0)+a)}
-    else if(gr.kind==='sale'){
-      const price=Number(gr.price);if(!(price>0))continue;
-      const who='@'+String(gr.buyer||'').replace(/[^A-Za-z0-9_]/g,''),g=S.inv.find(x=>!x.base&&x.col===gr.col&&x.serial===gr.serial);
-      if(g){const fr=feeG(g);S.cashback=+(S.cashback+price*fr*.2).toFixed(2);g.sl=0;completeSale(g,+(price*(1-fr)).toFixed(2),price,who)}
-      else{const net=+(price*.95).toFixed(2);S.ton=+(S.ton+net).toFixed(2);log('Продажа '+gr.col+' #'+gr.serial,'+'+f2(net),'emerald');toast(`Продано ${gr.col} #${gr.serial}: +${f2(net)} GRAM`,'ok')}
-    }
     else if(gr.kind==='gift'){
       if(!COLS[gr.col])continue;
       const sn=Math.max(0,Math.min(1000000,Math.floor(Number(gr.serial))||0));let g;
       if(sn<=0)g={id:S.nextId++,col:gr.col,serial:0,mi:0,bi:0,pi:0,price:0,bought:baseCost(gr.col),listed:false,mine:true,base:true,seller:'me',at:Date.now(),gr:1};
-      else{g=mkGift({col:gr.col,serial:sn,mine:true,seller:'me'});g.nw=0;g.gr=1;if(gr.vmul>0)g.vmul=Math.min(1000,Number(gr.vmul));if(gr.vcap>0){g.vcap=Math.min(1e7,Number(gr.vcap));g.ncap=g.vcap;g.fixv=g.vcap}g.bought=gr.paid>0?+Number(gr.paid).toFixed(2):fair(g)}
-      if(gr.mk)g.gr=0;
+      else{g=mkGift({col:gr.col,serial:sn,mine:true,seller:'me'});g.nw=0;g.gr=1;if(gr.vmul>0)g.vmul=Math.min(1000,Number(gr.vmul));if(gr.vcap>0){g.vcap=Math.min(1e7,Number(gr.vcap));g.ncap=g.vcap;g.fixv=g.vcap}g.bought=fair(g)}
       S.inv.unshift(g);
       const who=gr.from?String(gr.from).replace(/[^A-Za-z0-9_]/g,''):'';
-      if(gr.mk){if(S.pbuy&&S.pbuy.col===gr.col&&S.pbuy.serial===sn)S.pbuy=null}
-      else if(who){recv.push('@'+who+' отправил(а) вам '+gr.col+(sn?' #'+sn:''));log('Подарок от @'+who+': '+gr.col+(sn?' #'+sn:''),'подарок','emerald')}
+      if(who){recv.push('@'+who+' отправил(а) вам '+gr.col+(sn?' #'+sn:''));log('Подарок от @'+who+': '+gr.col+(sn?' #'+sn:''),'подарок','emerald')}
       else{gifts++;log('Получен подарок: '+gr.col+(sn?' #'+sn:''),'подарок','emerald')}
     }
   }
@@ -2422,10 +2286,7 @@ function applyGrants(list){
 }
 async function pullGrants(){
   if(!TOKEN||!CLOUD_READY||document.hidden)return;
-  try{
-    const r=await api('/grants');if(r.grants&&r.grants.length)applyGrants(r.grants);
-    if(S.pbuy&&Date.now()-S.pbuy.t>90000){const p=S.pbuy;S.pbuy=null;S.ton=+(S.ton+p.price).toFixed(2);log('Возврат: покупка не прошла','+'+f2(p.price),'emerald');toast('Покупка не прошла, GRAM возвращены','ok');save();refresh()}
-  }
+  try{const r=await api('/grants');if(r.grants&&r.grants.length)applyGrants(r.grants)}
   catch(e){if(e.status===403)bannedOut(e.message);else if(e.status===401)logoutLocal(true)}
 }
 
@@ -2534,8 +2395,6 @@ setInterval(tick,3000);
 setInterval(()=>{evInit();if(UI.tab==='games'&&!wBusy)renderGames()},30000);
 setInterval(()=>{if(TOKEN&&!CLOUD_READY)syncDown()},10000);
 setInterval(()=>pullGrants(),20000);
-setInterval(fetchMarket,8000);setTimeout(fetchMarket,600);
-setInterval(syncListings,12000);setTimeout(syncListings,4000);
 initAuth();
 </script>
 </body>

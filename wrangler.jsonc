@@ -17,10 +17,10 @@
     }
   ],
   "vars": {
-    "BOT_USERNAME": "portalgame_app",
+    "BOT_USERNAME": "ВПИШИ_ЮЗЕРНЕЙМ_БОТА",
     "APP_SHORTNAME": ""
   },
   "triggers": {
-    "crons": ["* * * * *"]
+    "crons": ["*/5 * * * *"]
   }
 }
