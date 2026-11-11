@@ -17,7 +17,7 @@
     }
   ],
   "vars": {
-    "BOT_USERNAME": "@portalgame_app",
+    "BOT_USERNAME": "portalgame_app",
     "APP_SHORTNAME": ""
   },
   "triggers": {
