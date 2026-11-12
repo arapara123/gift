@@ -783,7 +783,7 @@ function patchState(){
     g._rq=0;if(g.bsync!==3){g.sm=null;const keep=g.bsync===2||g.bsync===1;if(!keep){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}g.bsync=keep?1:0}
     if(g.seller&&g.seller.startsWith('@whale_ton'))g.seller='@whale_gram';
   });
-  S.inv.forEach(g=>{if(g.ncap>0&&g.listed&&g.price>maxPrice(g))g.price=maxPrice(g)});
+  S.inv.forEach(g=>{if(g.ncap>0&&g.listed&&g.price!==maxPrice(g))g.price=maxPrice(g)});
   if(stale){S.market=S.market.filter(g=>g.mine);S.mv=7;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
   S.feed=(S.feed||[]).filter(e=>e&&e.h).slice(0,25);
   S.hist=(S.hist||[]).map(h=>Object.assign(h,{t:String(h.t||'').trim()}));
@@ -1017,7 +1017,7 @@ function matchInfo(g){
   const tags=[];let m=1;const ci=CLS_INFO[matchCls(g)];
   if(ci){m=ci[0];tags.push(ci[1])}
   const bn=bdName(g);
-  if(bn==='Onyx Black'){m*=2.6;tags.push('Фон Onyx Black')}else if(bn==='Black'){m*=3.5;tags.push('Чёрный фон')}
+  if(bn==='Onyx Black'){m*=8;tags.push('Фон Onyx Black')}else if(bn==='Black'){m*=6;tags.push('Чёрный фон')}
   const rp=realPct(g);let c=0;
   if((rp.m!=null?rp.m<=1:MODELS[g.mi][1]<=4))c++;
   if((rp.b!=null?rp.b<=0.8:BACKDROPS[g.bi][3]<=5))c++;
@@ -1260,7 +1260,7 @@ function listGift(id){
   const g=S.inv.find(x=>x.id===id),v=parseFloat($('sell-price').value);
   if(!g||!(v>0)){toast('Укажите цену','bad');return}
   const was=g.listed;
-  g.price=+(g.ncap>0?Math.min(v,maxPrice(g)):v).toFixed(2);g.listed=true;if(!S.market.find(x=>x.id===id))S.market.unshift(g);
+  g.price=+(g.ncap>0?maxPrice(g):v).toFixed(2);g.listed=true;if(!S.market.find(x=>x.id===id))S.market.unshift(g);
   if(!was)evHit('list');
   sfx.click();closeModal();toast(`${g.col} #${g.serial} выставлен за ${f2(g.price)} GRAM`,'ok');refresh();
 }
@@ -1311,7 +1311,7 @@ function tick(){
   });
   for(let i=0;i<8&&oth.length;i++){const g=pick(oth);if(g.oops===1)continue;const old=g.price,tg=botReprice(g);g.price=+Math.max(.5,old+(tg-old)*rnd(.3,.85)).toFixed(2);g.fl=g.price<old?-1:g.price>old?1:0}
   for(const g of S.inv.filter(x=>x.listed)){
-    if(g.ncap>0&&g.price>maxPrice(g))g.price=maxPrice(g);
+    if(g.ncap>0&&g.price!==maxPrice(g))g.price=maxPrice(g);
     if(Math.random()<chanceFor(ratioOf(g,g.price))){const b=pick(BOTS);const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);completeSale(g,net,g.price,b);break}
   }
   const up=S.inv.filter(x=>!x.base);
@@ -1555,14 +1555,14 @@ function openGift(id,just,keep){
   UI.openId=g.id;const R=g.real||{};
   let action;
   if(g.mine){
-    const big=isBig(g),bg2=big?bigGross(g):0,d=g.listed?g.price:big?Math.max(+Math.min(f*1.05,bg2).toFixed(2),0.5):Math.max(+(g.ncap>0?f:f*1.05).toFixed(2),0.5);
+    const big=isBig(g),bg2=big?bigGross(g):0,d=g.ncap>0?Math.max(+f.toFixed(2),0.5):g.listed?g.price:big?Math.max(+Math.min(f*1.05,bg2).toFixed(2),0.5):Math.max(+(g.ncap>0?f:f*1.05).toFixed(2),0.5);
     action=`<div class="row" style="margin-bottom:10px">
       <button class="pill ${worn?'on':''}" style="flex:1;height:40px;justify-content:center" onclick="toggleWear(${g.id})">${worn?'Статус надет':'Надеть статус'}</button>
       <button class="pill ${pin?'on':''}" style="flex:1;height:40px;justify-content:center" onclick="togglePin(${g.id})">${pin?'В профиле':'Показать в профиле'}</button></div>
     <div class="panel">
       <div class="row sb" style="margin-bottom:10px"><span class="mut">Куплен за <b style="color:#fff">${f2(g.bought)}</b></span><span class="mut">Оценка <b class="green">${f2(f)}</b></span></div>
-      <input id="sell-price" class="input" type="number" inputmode="decimal" step="0.01" min="0" value="${d}" oninput="calcSell(${g.id})">
-      <input type="range" id="sell-rng" min="${g.ncap>0?Math.max(0,f-3*unitOf(g)).toFixed(2):(big?Math.min(f*.5,g.bought*.8):f*.5).toFixed(2)}" max="${g.ncap>0?maxPrice(g):(big?Math.min(f*1.5,bg2*1.15):f*1.5).toFixed(2)}" step="any" value="${d}" style="margin:16px 0 6px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id});const k=Math.round(this.value/((this.max-this.min)/24||1));if(k!==this._k){this._k=k;haptic('select')}">
+      <input id="sell-price" class="input" type="number" inputmode="decimal" step="0.01" min="0" value="${d}" ${g.ncap>0?'readonly style="opacity:.8"':''} oninput="calcSell(${g.id})">
+      ${g.ncap>0?'<div class="mut" style="margin:10px 2px 4px;line-height:1.4">Цена фиксирована: подарок из крафта продаётся по оценке</div>':`<input type="range" id="sell-rng" min="${g.ncap>0?Math.max(0,f-3*unitOf(g)).toFixed(2):(big?Math.min(f*.5,g.bought*.8):f*.5).toFixed(2)}" max="${g.ncap>0?maxPrice(g):(big?Math.min(f*1.5,bg2*1.15):f*1.5).toFixed(2)}" step="any" value="${d}" style="margin:16px 0 6px" oninput="$('sell-price').value=(+this.value).toFixed(2);calcSell(${g.id});const k=Math.round(this.value/((this.max-this.min)/24||1));if(k!==this._k){this._k=k;haptic('select')}">`}
       <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px;font-size:13.5px;line-height:1.75">
         <div class="row sb"><span class="mut">Комиссия ${(feeG(g)*100).toFixed(0)}%</span><span id="sp-fee"></span></div>
         <div class="row sb"><span class="mut">Вы получите</span><b id="sp-net"></b></div>
@@ -1684,6 +1684,18 @@ function openPicker(kind){
 const NO_UP=new Set(['Algorithm Cup','Intelligence Cup']);
 const UP_P=.30,UPQ={};
 function craftValue(g,V,I){const u=unitOf(g),lr=Math.log(Math.max(V,.01)/I),d=Math.sign(lr)*Math.min(3.5,Math.abs(lr)*3)*u;return +Math.max(.5,I+d).toFixed(2)}
+function craftOutcome(g,V,I,jp,roll){
+  const u=unitOf(g),big=((COLS[g.col]&&COLS[g.col].floor)||0)>=200,bn=bdName(g),black=bn==='Black'||bn==='Onyx Black';
+  let val=craftValue(g,V,I);
+  if(jp)return +Math.max(val,big?roll.target:I+rnd(40,60)).toFixed(2);
+  const mt=matchInfo(g),r=V/Math.max(I,.01);
+  if(mt.m>=1.25&&val<=I)val=I+Math.max(.3,rnd(.1,.6)*u);
+  if(black)val=Math.max(val,I+rnd(15,25));
+  else if(r>=3.2||mt.m>=3)val=Math.max(val,I+rnd(10,15));
+  else if(r>=2.2)val=Math.max(val,I+rnd(5,9));
+  else if(r>=1.6)val=Math.max(val,I+rnd(2,4));
+  return +Math.max(.5,val).toFixed(2);
+}
 function upMult(c){
   if(UPQ[c])return UPQ[c];
   const sup=COLS[c].supply,r=seeded(hash('upq:'+c)),v=[],f=S.floors[c]||COLS[c].floor;
@@ -1691,8 +1703,8 @@ function upMult(c){
   v.sort((a,b)=>a-b);
   return UPQ[c]=Math.max(v[Math.floor((1-UP_P)*v.length)],1.2);
 }
-const UP_TIERS=[[.1999,1,1,3],[.07,1,3,5],[.029,1,5,9],[.001,1,9,15],[.0001,1,120,150,1],[.5,-1,1,3],[.14,-1,3,5],[.045,-1,5,9],[.015,-1,9,15]];
-const UP_TIERS_BIG=[[.1999,1,8,12],[.07,1,10,15],[.029,1,13,20],[.001,1,15,20],[.0001,1,200,200,1],[.5,-1,6,12],[.14,-1,10,15],[.045,-1,13,20],[.015,-1,15,20]];
+const UP_TIERS=[[.1995,1,1,3],[.07,1,3,5],[.029,1,5,9],[.001,1,9,15],[.0005,1,120,150,1],[.5,-1,1,3],[.14,-1,3,5],[.045,-1,5,9],[.015,-1,9,15]];
+const UP_TIERS_BIG=[[.1995,1,8,12],[.07,1,10,15],[.029,1,13,20],[.001,1,15,20],[.0005,1,200,200,1],[.5,-1,6,12],[.14,-1,10,15],[.045,-1,13,20],[.015,-1,15,20]];
 function upScale(c){const f=(COLS[c]&&COLS[c].floor)||5;return f<=10?1:f<=50?1.4:2}
 function rollUp(invested,col){
   const big=((COLS[col]&&COLS[col].floor)||0)>=200,T=big?UP_TIERS_BIG:UP_TIERS,k=big?1:upScale(col);let r=Math.random();
@@ -1795,7 +1807,7 @@ function doUpgrade(){
     if(smp){g.sm=smp.sm;g.bsync=3}
     g.real=realAttrs||undefined;
     delete g.vmul;delete g.fixv;g.vcap=0;g.ncap=0;
-    const V=fair(g),val=jackpot?Math.max(roll.target,craftValue(g,V,invested)):craftValue(g,V,invested);
+    const V=fair(g),val=craftOutcome(g,V,invested,jackpot,roll);
     g.vcap=val;g.ncap=val;g.fixv=val;
     const fu=IMG_URL[slug+'-'+r.serial+'l']||IMG_URL[slug+'-'+r.serial];
     if(fu){
