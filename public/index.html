@@ -783,6 +783,7 @@ function patchState(){
     g._rq=0;if(g.bsync!==3){g.sm=null;const keep=g.bsync===2||g.bsync===1;if(!keep){const t=traits(g.col,g.serial);g.mi=t.mi;g.bi=t.bi;g.pi=t.pi}g.bsync=keep?1:0}
     if(g.seller&&g.seller.startsWith('@whale_ton'))g.seller='@whale_gram';
   });
+  S.inv.forEach(g=>{if(g.ncap>0&&g.listed&&g.price>maxPrice(g))g.price=maxPrice(g)});
   if(stale){S.market=S.market.filter(g=>g.mine);S.mv=7;COL_NAMES.forEach(c=>{S.floors[c]=COLS[c].floor;S.fh[c]=Array(30).fill(COLS[c].floor)});refillMarket()}
   S.feed=(S.feed||[]).filter(e=>e&&e.h).slice(0,25);
   S.hist=(S.hist||[]).map(h=>Object.assign(h,{t:String(h.t||'').trim()}));
@@ -813,7 +814,7 @@ function bigLim(g){const bar=Math.max(0,fair(g)*(1-feeG(g))-g.bought);return 8+(
 function bigGross(g){return +((g.bought+bigLim(g))/(1-feeG(g))).toFixed(2)}
 function instGross(g){const x=fair(g)*.9;return isBig(g)?Math.min(x,bigGross(g)):x}
 function ratioOf(g,price){const f=fair(g);if(g.ncap>0)return 1+.2*(price-f)/unitOf(g);let r=price/f;if(isBig(g)&&price*(1-feeG(g))-g.bought>bigLim(g))r=Math.max(r,2);return r}
-function maxPrice(g){return +(fair(g)+3*unitOf(g)).toFixed(2)}
+function maxPrice(g){return g&&g.ncap>0?+fair(g).toFixed(2):+(fair(g)+3*unitOf(g)).toFixed(2)}
 function feeG(g){return g&&g.ncap>0?0:feeRate()}
 function tierName(){return S.vol>=500?'VIP 3 · комиссия 3%':S.vol>=100?'VIP 2 · комиссия 4%':'VIP 1 · комиссия 5%'}
 function toast(msg,k=''){if(k==='bad')setTimeout(()=>haptic('error'),40);const e=document.createElement('div');e.className='toast '+k;e.innerHTML='<span>'+msg+'</span>';$('toasts').appendChild(e);setTimeout(()=>{e.classList.add('out');setTimeout(()=>e.remove(),260)},3200)}
@@ -1310,6 +1311,7 @@ function tick(){
   });
   for(let i=0;i<8&&oth.length;i++){const g=pick(oth);if(g.oops===1)continue;const old=g.price,tg=botReprice(g);g.price=+Math.max(.5,old+(tg-old)*rnd(.3,.85)).toFixed(2);g.fl=g.price<old?-1:g.price>old?1:0}
   for(const g of S.inv.filter(x=>x.listed)){
+    if(g.ncap>0&&g.price>maxPrice(g))g.price=maxPrice(g);
     if(Math.random()<chanceFor(ratioOf(g,g.price))){const b=pick(BOTS);const net=+(g.price*(1-feeG(g))).toFixed(2);S.cashback=+(S.cashback+g.price*feeG(g)*.2).toFixed(2);completeSale(g,net,g.price,b);break}
   }
   const up=S.inv.filter(x=>!x.base);
