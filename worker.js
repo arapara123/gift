@@ -400,7 +400,6 @@ async function cron(env) {
     let changed = false;
     for (const g of [...d.inv]) {
       if (!g || g.base || !g.listed || !(g.price > 0)) continue;
-      if (g.ncap > 0 && g.fv > 0 && g.price > g.fv) g.price = +g.fv;
       const ch = num(g.ch, 0, 0.5);
       if (!ch || Math.random() >= 1 - Math.pow(1 - ch, 7 * mins)) continue;
       const vol = +d.vol || 0, fee = g.ncap > 0 ? 0 : vol >= 500 ? 0.03 : vol >= 100 ? 0.04 : 0.05;
